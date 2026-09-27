@@ -133,9 +133,6 @@ function init(): void {
     ui.forceShowOverlay();
   }
 
-  // 定期巡检：防止面板被意外隐藏
-  ui.startOverlayWatcher();
-
   // 15 秒低频兜底：主进程 URL 事件若漏发（罕见路由方式），这里补一次
   setInterval(() => {
     try {

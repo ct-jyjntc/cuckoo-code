@@ -30,8 +30,6 @@ function injectOverlay(): void {
 
 // ========== 覆盖层逻辑 ==========
 
-let currentCommand: any = null;
-let isExecuting = false;
 let commandIdCounter = 0;
 const commandHistory: any[] = [];
 
@@ -230,7 +228,6 @@ function hideOverlay(): void {
  * @param cmdData - 命令数据对象，包含 command、timestamp、id 等字段
  */
 function displayCommand(cmdData: any): void {
-  currentCommand = cmdData;
   const preview = document.getElementById('cuckoo-cmd-preview');
   const resultSection = document.getElementById('cuckoo-result-section');
   if (preview) preview.textContent = cmdData.command;
