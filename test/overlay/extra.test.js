@@ -1,5 +1,33 @@
-import { test } from 'vitest';
+// @vitest-environment happy-dom
+'use strict';
+/**
+ * 杂项覆盖测试。
+ * 注：renderSessions 相关用例原先用 innerHTML 字符串桩假 document；
+ * 渲染改为 h()/replaceChildrenOf 后假 DOM 无法工作，迁移到 happy-dom + setupDom，
+ * 断言目标保持不变（API 不可用 / 暂无会话 / 渲染条目）。
+ */
+import { test, beforeEach, afterEach, vi } from 'vitest';
 import assert from 'node:assert';
+
+import { setupDom } from '../helpers/dom';
+
+vi.mock('../../src/overlay/panel.js', () => ({
+  showToast: () => {},
+  hideFirstTimeDialog: () => {},
+  escapeHtml: (t) => String(t)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+}));
+
+let ctx;
+
+beforeEach(() => {
+  ctx = setupDom('');
+});
+
+afterEach(() => {
+  ctx.cleanup();
+  delete window.electronAPI;
+});
 
 test('randomDelay 返回 2000-3999ms', async () => {
   const { randomDelay } = await import('../../src/overlay/chat-input.js');
@@ -10,12 +38,14 @@ test('randomDelay 返回 2000-3999ms', async () => {
 });
 
 test('updateProjectDirDisplay 更新显示', async () => {
-  const span = { textContent: '' };
-  const section = { style: {} };
-  global.document = {
-    getElementById: (id) => id === 'cuckoo-project-dir-display' ? { querySelector: () => span } : null,
-    querySelector: (sel) => sel === '.cuckoo-project-dir-section' ? section : null,
-  };
+  ctx.cleanup();
+  ctx = setupDom(
+    '<div class="cuckoo-project-dir-section">' +
+      '<div id="cuckoo-project-dir-display"><span class="cuckoo-dir-path"></span></div>' +
+    '</div>'
+  );
+  const span = document.querySelector('.cuckoo-dir-path');
+  const section = document.querySelector('.cuckoo-project-dir-section');
   const { updateProjectDirDisplay } = await import('../../src/overlay/project-dir.js');
   updateProjectDirDisplay('C:\\proj');
   assert.strictEqual(span.textContent, 'C:\\proj');
@@ -26,38 +56,32 @@ test('updateProjectDirDisplay 更新显示', async () => {
 });
 
 test('renderSessions API 不可用显示提示', async () => {
-  const el = { innerHTML: '' };
-  global.document = { getElementById: () => el };
-  global.window = {};
+  ctx.cleanup();
+  ctx = setupDom('<div id="cuckoo-session-list" class="cuckoo-session-list"></div>');
   const { renderSessions } = await import('../../src/overlay/session-list.js');
   await renderSessions();
-  assert.match(el.innerHTML, /API 不可用/);
+  const list = document.getElementById('cuckoo-session-list');
+  assert.ok(list.textContent.includes('API 不可用'));
 });
 
 test('renderSessions 无会话显示暂无', async () => {
-  const el = { innerHTML: '', querySelectorAll: () => [] };
-  global.document = { getElementById: () => el };
-  global.window = { electronAPI: { listSessions: async () => ({ success: true, sessions: [] }) } };
+  ctx.cleanup();
+  ctx = setupDom('<div id="cuckoo-session-list" class="cuckoo-session-list"></div>');
+  window.electronAPI = { listSessions: async () => ({ success: true, sessions: [] }) };
   const { renderSessions } = await import('../../src/overlay/session-list.js');
   await renderSessions();
-  assert.match(el.innerHTML, /暂无会话/);
+  const list = document.getElementById('cuckoo-session-list');
+  assert.ok(list.textContent.includes('暂无会话'));
 });
 
 test('renderSessions 有会话渲染并绑定', async () => {
-  const el = { innerHTML: '', querySelectorAll: () => [] };
-  const mkEl = () => {
-    let text = '';
-    return {
-      set textContent(v) { text = String(v); },
-      get textContent() { return text; },
-      get innerHTML() { return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); },
-      set innerHTML(v) {},
-      style: {},
-    };
-  };
-  global.document = { getElementById: () => el, createElement: () => mkEl() };
-  global.window = { electronAPI: { listSessions: async () => ({ success: true, sessions: ['abc'] }) } };
+  ctx.cleanup();
+  ctx = setupDom('<div id="cuckoo-session-list" class="cuckoo-session-list"></div>');
+  window.electronAPI = { listSessions: async () => ({ success: true, sessions: ['abc'] }) };
   const { renderSessions } = await import('../../src/overlay/session-list.js');
   await renderSessions();
-  assert.match(el.innerHTML, /abc/);
+  const item = document.querySelector('.cuckoo-session-item');
+  assert.ok(item);
+  assert.strictEqual(item.dataset.sessionId, 'abc');
+  assert.strictEqual(item.querySelector('.session-id').textContent, 'abc');
 });

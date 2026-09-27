@@ -5,6 +5,7 @@
 import { OVERLAY_HTML, OVERLAY_CSS } from './template.generated.js';
 import { getProviderByUrl } from '../providers/registry.js';
 import { state } from './state.js';
+import { h, replaceChildrenOf } from './dom.js';
 
 // ========== 注入样式 ==========
 /**
@@ -259,52 +260,65 @@ function addHistory(entry: any): void {
   renderHistory();
 }
 
+/** 已绑定委托的历史列表容器（容器是模板静态元素，只绑一次） */
+const historyDelegatedLists = new WeakSet<Element>();
+
+/**
+ * 容器级事件委托：点击历史条目回填预览/输出并展开覆盖层。
+ * 只绑定一次，renderHistory 保持纯渲染。
+ */
+function bindHistoryDelegation(list: HTMLElement): void {
+  if (historyDelegatedLists.has(list)) return;
+  historyDelegatedLists.add(list);
+  list.addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest('.cuckoo-history-item') as HTMLElement | null;
+    if (!el || !list.contains(el)) return;
+    const id = el.dataset.id;
+    const entry = commandHistory.find((hist) => hist.id === id);
+    if (entry) {
+      const preview = document.getElementById('cuckoo-cmd-preview');
+      const resultSection = document.getElementById('cuckoo-result-section');
+      const resultStatus = document.getElementById('cuckoo-result-status');
+      const resultOutput = document.getElementById('cuckoo-result-output');
+      if (preview) preview.textContent = entry.command;
+      if (entry.output && resultSection) {
+        resultSection.classList.remove('cuckoo-hidden');
+        if (resultStatus) {
+          resultStatus.textContent = entry.canceled ? '⏹ 已忽略' : entry.success ? '✅ 执行成功' : '❌ 执行失败';
+          resultStatus.className = `cuckoo-result-status ${entry.success ? 'success' : 'error'}`;
+        }
+        if (resultOutput) resultOutput.textContent = entry.output || '(无输出)';
+      }
+      showOverlay();
+    }
+  });
+}
+
 /**
  * 渲染历史记录列表
- * 将 commandHistory 中的记录渲染到界面，并为每条记录绑定点击事件以查看详情
+ * 将 commandHistory 中的记录渲染到界面，点击条目查看详情（容器级委托）
  */
 function renderHistory(): void {
   const list = document.getElementById('cuckoo-history-list');
   if (!list) return;
+  bindHistoryDelegation(list);
 
   if (commandHistory.length === 0) {
-    list.innerHTML = '<div style="color:#666;font-size:12px;font-style:italic;padding:8px 0;">暂无记录</div>';
+    replaceChildrenOf(list, h('div', {
+      style: { color: '#666', fontSize: '12px', fontStyle: 'italic', padding: '8px 0' },
+    }, '暂无记录'));
     return;
   }
 
   const items = commandHistory.slice(0, 20);
-  list.innerHTML = items.map((item) => `
-    <div class="cuckoo-history-item" data-id="${escapeHtml(item.id)}">
-      <span class="cuckoo-cmd-text">${escapeHtml(truncate(item.command, 60))}</span>
-      <span class="cuckoo-cmd-status ${item.canceled ? '' : item.success ? 'success' : 'error'}">
-        ${item.canceled ? '⏹ 已忽略' : item.success ? '✅ 成功' : '❌ 失败'}
-      </span>
-      <span class="cuckoo-cmd-time">${formatTime(item.timestamp)}</span>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.cuckoo-history-item').forEach((el) => {
-    el.addEventListener('click', () => {
-      const id = (el as HTMLElement).dataset.id;
-      const entry = commandHistory.find((h) => h.id === id);
-      if (entry) {
-        const preview = document.getElementById('cuckoo-cmd-preview');
-        const resultSection = document.getElementById('cuckoo-result-section');
-        const resultStatus = document.getElementById('cuckoo-result-status');
-        const resultOutput = document.getElementById('cuckoo-result-output');
-        if (preview) preview.textContent = entry.command;
-        if (entry.output && resultSection) {
-          resultSection.classList.remove('cuckoo-hidden');
-          if (resultStatus) {
-            resultStatus.textContent = entry.canceled ? '⏹ 已忽略' : entry.success ? '✅ 执行成功' : '❌ 执行失败';
-            resultStatus.className = `cuckoo-result-status ${entry.success ? 'success' : 'error'}`;
-          }
-          if (resultOutput) resultOutput.textContent = entry.output || '(无输出)';
-        }
-        showOverlay();
-      }
-    });
-  });
+  replaceChildrenOf(list, ...items.map((item) =>
+    h('div', { class: 'cuckoo-history-item', dataset: { id: String(item.id) } },
+      h('span', { class: 'cuckoo-cmd-text' }, truncate(item.command, 60)),
+      h('span', { class: `cuckoo-cmd-status ${item.canceled ? '' : item.success ? 'success' : 'error'}` },
+        item.canceled ? '⏹ 已忽略' : item.success ? '✅ 成功' : '❌ 失败'),
+      h('span', { class: 'cuckoo-cmd-time' }, formatTime(item.timestamp)),
+    )
+  ));
 }
 
 /**

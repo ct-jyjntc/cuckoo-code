@@ -2,9 +2,28 @@
  * 会话列表功能（渲染、导航、初始化项目按钮）
  * 由原 preload.js 拆分而来，逻辑保持不变。
  */
-import { escapeHtml, showToast } from './panel.js';
+import { showToast } from './panel.js';
+import { h, replaceChildrenOf } from './dom.js';
 
 // ========== 会话列表功能 ==========
+
+/** 已绑定委托的容器（容器是模板静态元素，只绑一次） */
+const delegatedLists = new WeakSet<Element>();
+
+/**
+ * 容器级事件委托：点击会话条目触发导航。
+ * 只绑定一次，render 函数保持纯渲染。
+ */
+function bindSessionListDelegation(list: HTMLElement): void {
+  if (delegatedLists.has(list)) return;
+  delegatedLists.add(list);
+  list.addEventListener('click', (e) => {
+    const item = (e.target as HTMLElement).closest('.cuckoo-session-item') as HTMLElement | null;
+    if (!item || !list.contains(item)) return;
+    const sessionId = item.dataset.sessionId;
+    if (sessionId) handleNavigateSession(sessionId);
+  });
+}
 
 /**
  * 渲染当前项目目录关联的会话列表
@@ -12,42 +31,38 @@ import { escapeHtml, showToast } from './panel.js';
 async function renderSessions(): Promise<void> {
   const listContainer = document.getElementById('cuckoo-session-list');
   if (!listContainer) return;
+  bindSessionListDelegation(listContainer);
+
+  const renderEmpty = (text: string) =>
+    replaceChildrenOf(listContainer, h('div', { class: 'cuckoo-session-empty' }, text));
 
   try {
     if (!window.electronAPI || !window.electronAPI.listSessions) {
-      listContainer.innerHTML = '<div class="cuckoo-session-empty">API 不可用</div>';
+      renderEmpty('API 不可用');
       return;
     }
 
     const result = await window.electronAPI.listSessions();
     if (!result.success) {
-      listContainer.innerHTML = '<div class="cuckoo-session-empty">加载失败</div>';
+      renderEmpty('加载失败');
       return;
     }
 
     const sessions = result.sessions || [];
     if (sessions.length === 0) {
-      listContainer.innerHTML = '<div class="cuckoo-session-empty">暂无会话</div>';
+      renderEmpty('暂无会话');
       return;
     }
 
-    listContainer.innerHTML = sessions.map((sessionId: string) => `
-      <div class="cuckoo-session-item" data-session-id="${escapeHtml(sessionId)}">
-        <span class="session-id">${escapeHtml(sessionId)}</span>
-        <span class="session-action">▶ 跳转</span>
-      </div>
-    `).join('');
-
-    // 绑定点击事件
-    listContainer.querySelectorAll('.cuckoo-session-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const sessionId = (item as HTMLElement).dataset.sessionId;
-        if (sessionId) handleNavigateSession(sessionId);
-      });
-    });
+    replaceChildrenOf(listContainer, ...sessions.map((sessionId: string) =>
+      h('div', { class: 'cuckoo-session-item', dataset: { sessionId: String(sessionId) } },
+        h('span', { class: 'session-id' }, String(sessionId)),
+        h('span', { class: 'session-action' }, '▶ 跳转'),
+      )
+    ));
   } catch (err) {
     console.error('[Cuckoo Code] 渲染会话列表失败:', err);
-    listContainer.innerHTML = '<div class="cuckoo-session-empty">加载出错</div>';
+    renderEmpty('加载出错');
   }
 }
 

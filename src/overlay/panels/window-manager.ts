@@ -3,6 +3,97 @@
  * 由 events.ts 拆分而来（P4.5），逻辑保持不变。
  */
 import { showToast } from '../panel.js';
+import { h, replaceChildrenOf } from '../dom.js';
+
+/** 已绑定委托的容器（容器是模板静态元素，只绑一次） */
+const delegatedLists = new WeakSet<Element>();
+
+/**
+ * 容器级事件委托：
+ * - change（.cuckoo-window-auto input）→ 设置默认打开
+ * - click（.cuckoo-window-del）→ 删除窗口
+ * - click（.cuckoo-window-item 其他区域）→ 打开/切换窗口
+ */
+function bindWindowListDelegation(list: HTMLElement): void {
+  if (delegatedLists.has(list)) return;
+  delegatedLists.add(list);
+
+  list.addEventListener('change', async (e) => {
+    const cb = (e.target as HTMLElement).closest('.cuckoo-window-auto input') as HTMLInputElement | null;
+    if (!cb || !list.contains(cb)) return;
+    const profileId = cb.dataset.profileId;
+    const on = cb.checked;
+    try {
+      const r = await window.electronAPI.setProfileAutoOpen(profileId!, on);
+      if (!r || !r.success) {
+        showToast((r && r.error) || '设置失败', 3000);
+        cb.checked = !on; // 回滚
+      }
+    } catch (err: any) {
+      showToast('设置失败: ' + (err.message || err), 3000);
+      cb.checked = !on;
+    }
+  });
+
+  list.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+
+    const del = target.closest('.cuckoo-window-del') as HTMLElement | null;
+    if (del && list.contains(del)) {
+      const profileId = del.dataset.profileId;
+      try {
+        const r = await window.electronAPI.deleteProfileWindow(profileId!);
+        if (r && r.success) {
+          showToast('已删除窗口', 2000);
+          await renderWindowList();
+        } else {
+          showToast((r && r.error) || '删除失败', 3000);
+        }
+      } catch (err: any) {
+        showToast('删除失败: ' + (err.message || err), 3000);
+      }
+      return;
+    }
+
+    // 点击复选框区域不触发切换
+    if (target.closest('.cuckoo-window-auto')) return;
+
+    const item = target.closest('.cuckoo-window-item') as HTMLElement | null;
+    if (!item || !list.contains(item)) return;
+    const profileId = item.dataset.profileId;
+    try {
+      const r = await window.electronAPI.openProfileWindow(profileId!);
+      if (r && r.success) {
+        showToast(r.focused ? '已切换到该窗口' : '已打开窗口', 2000);
+        closeWindowManager();
+      } else {
+        showToast((r && r.error) || '打开失败', 3000);
+      }
+    } catch (err: any) {
+      showToast('打开窗口失败: ' + (err.message || err), 3000);
+    }
+  });
+}
+
+function renderWindowItem(p: any, providerMap: Record<string, string>): HTMLElement {
+  const pname = providerMap[p.providerId] || '平台';
+  const checkbox = h('input', { dataset: { profileId: String(p.id) } });
+  checkbox.type = 'checkbox';
+  checkbox.checked = p.autoOpen === true;
+  const label = h('label', { class: 'cuckoo-window-auto' }, checkbox, '默认');
+  label.title = '启动时默认打开此窗口';
+  const del = h('span', { class: 'cuckoo-window-del', dataset: { profileId: String(p.id) } }, '删除');
+  del.title = '删除窗口';
+  return h('div', { class: 'cuckoo-window-item', dataset: { profileId: String(p.id) } },
+    label,
+    h('span', { class: 'cuckoo-window-left' },
+      h('span', { class: 'cuckoo-window-name' }, String(p.name)),
+      h('span', { class: 'cuckoo-window-sep' }, '|'),
+      h('span', { class: 'cuckoo-window-status' }, pname),
+    ),
+    del,
+  );
+}
 
 /**
  * 渲染窗口列表（浮动管理面板内）
@@ -10,11 +101,12 @@ import { showToast } from '../panel.js';
 async function renderWindowList() {
   const list = document.getElementById('cuckoo-window-list');
   if (!list) return;
+  bindWindowListDelegation(list);
   try {
     const res = await window.electronAPI.listProfiles();
     const profiles = res && res.success ? res.profiles : [];
     if (!profiles || profiles.length === 0) {
-      list.innerHTML = '<div class="cuckoo-session-empty">暂无窗口</div>';
+      replaceChildrenOf(list, h('div', { class: 'cuckoo-session-empty' }, '暂无窗口'));
       return;
     }
     // 获取平台名映射
@@ -26,81 +118,9 @@ async function renderWindowList() {
       }
     } catch (_) {}
 
-    list.innerHTML = profiles.map((p: any) => {
-      const pname = providerMap[p.providerId] || '平台';
-      const checked = p.autoOpen === true ? ' checked' : '';
-      return '<div class="cuckoo-window-item" data-profile-id="' + p.id + '">' +
-        '<label class="cuckoo-window-auto" title="启动时默认打开此窗口">' +
-          '<input type="checkbox" data-profile-id="' + p.id + '"' + checked + ' />' +
-          '默认' +
-        '</label>' +
-        '<span class="cuckoo-window-left">' +
-          '<span class="cuckoo-window-name">' + p.name + '</span>' +
-          '<span class="cuckoo-window-sep">|</span>' +
-          '<span class="cuckoo-window-status">' + pname + '</span>' +
-        '</span>' +
-        '<span class="cuckoo-window-del" data-profile-id="' + p.id + '" title="删除窗口">删除</span>' +
-      '</div>';
-    }).join('');
-    // 绑定"默认打开"复选框
-    list.querySelectorAll('.cuckoo-window-auto input').forEach(cb => {
-      cb.addEventListener('change', async (e) => {
-        e.stopPropagation();
-        const profileId = (cb as HTMLInputElement).dataset.profileId;
-        const on = (cb as HTMLInputElement).checked;
-        try {
-          const r = await window.electronAPI.setProfileAutoOpen(profileId!, on);
-          if (!r || !r.success) {
-            showToast((r && r.error) || '设置失败', 3000);
-            (cb as HTMLInputElement).checked = !on; // 回滚
-          }
-        } catch (err: any) {
-          showToast('设置失败: ' + (err.message || err), 3000);
-          (cb as HTMLInputElement).checked = !on;
-        }
-      });
-      cb.addEventListener('click', (e) => e.stopPropagation());
-    });
-
-    list.querySelectorAll('.cuckoo-window-item').forEach(el => {
-      el.addEventListener('click', async (e) => {
-        // 点击删除按钮或复选框不触发切换
-        if ((e.target as any).classList.contains('cuckoo-window-del')) return;
-        if ((e.target as any).closest('.cuckoo-window-auto')) return;
-        const profileId = (el as HTMLElement).dataset.profileId;
-        try {
-          const r = await window.electronAPI.openProfileWindow(profileId!);
-          if (r && r.success) {
-            showToast(r.focused ? '已切换到该窗口' : '已打开窗口', 2000);
-            closeWindowManager();
-          } else {
-            showToast((r && r.error) || '打开失败', 3000);
-          }
-        } catch (err: any) {
-          showToast('打开窗口失败: ' + (err.message || err), 3000);
-        }
-      });
-    });
-    // 绑定删除按钮
-    list.querySelectorAll('.cuckoo-window-del').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const profileId = (btn as HTMLElement).dataset.profileId;
-        try {
-          const r = await window.electronAPI.deleteProfileWindow(profileId!);
-          if (r && r.success) {
-            showToast('已删除窗口', 2000);
-            await renderWindowList();
-          } else {
-            showToast((r && r.error) || '删除失败', 3000);
-          }
-        } catch (err: any) {
-          showToast('删除失败: ' + (err.message || err), 3000);
-        }
-      });
-    });
+    replaceChildrenOf(list, ...profiles.map((p: any) => renderWindowItem(p, providerMap)));
   } catch (err) {
-    list.innerHTML = '<div class="cuckoo-session-empty">加载失败</div>';
+    replaceChildrenOf(list, h('div', { class: 'cuckoo-session-empty' }, '加载失败'));
   }
 }
 

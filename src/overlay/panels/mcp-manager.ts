@@ -3,6 +3,77 @@
  * 由 events.ts 拆分而来（P4.5），逻辑保持不变。
  */
 import { showToast, showConfirmDialog } from '../panel.js';
+import { h, replaceChildrenOf } from '../dom.js';
+
+/** 最近一次渲染的 server 列表（委托回调按名字查找状态） */
+let lastServers: any[] = [];
+
+/** 已绑定委托的容器（容器是模板静态元素，只绑一次） */
+const delegatedLists = new WeakSet<Element>();
+
+/**
+ * 容器级事件委托：点击 server 条目切换连接/断开。
+ * 只绑定一次，render 函数保持纯渲染。
+ */
+function bindMcpListDelegation(list: HTMLElement): void {
+  if (delegatedLists.has(list)) return;
+  delegatedLists.add(list);
+  list.addEventListener('click', async (e) => {
+    const el = (e.target as HTMLElement).closest('.cuckoo-mcp-item') as HTMLElement | null;
+    if (!el || !list.contains(el)) return;
+    const name = el.dataset.mcpName;
+    const server = lastServers.find((s: any) => s.name === name);
+    if (!server) return;
+
+    // 点击后立即显示 loading
+    const dot = el.querySelector('.cuckoo-mcp-dot');
+    if (dot) (dot as HTMLElement).style.background = '#ffc107';
+    el.style.pointerEvents = 'none';
+
+    try {
+      if (server.connected || server.enabled) {
+        // 已连接或已启用 → 断开/禁用
+        await window.electronAPI.disableMcpServer(name!);
+        showToast('已断开 ' + name, 2000);
+      } else {
+        // 未启用 → 连接
+        await window.electronAPI.enableMcpServer(name!);
+        showToast('已连接 ' + name, 2000);
+      }
+      await renderMcpList();
+      await loadMcpConfigToJson();
+    } catch (err: any) {
+      showToast('操作失败: ' + (err.message || err), 3000);
+      await renderMcpList();
+    }
+  });
+}
+
+function renderMcpItem(s: any): HTMLElement {
+  const status = s.connected ? '已连接' : (s.enabled ? '未连接' : '已禁用');
+  const statusColor = s.connected ? '#4ade80' : (s.enabled ? '#ffc107' : '#5d6280');
+  // 来源标记：项目级 / 用户级
+  const srcLabel = s.source === 'project' ? '项目' : '用户';
+  const srcColor = s.source === 'project' ? '#8b93ff' : '#5d6280';
+  const dot = h('span', {
+    class: 'cuckoo-mcp-dot',
+    style: {
+      width: '8px', height: '8px', borderRadius: '50%',
+      background: statusColor, flexShrink: '0', marginLeft: 'auto',
+    },
+  });
+  dot.title = status;
+  return h('div', { class: 'cuckoo-window-item cuckoo-mcp-item', dataset: { mcpName: String(s.name) } },
+    h('span', { class: 'cuckoo-window-name' }, String(s.name)),
+    h('span', {
+      style: {
+        fontSize: '10px', padding: '1px 5px', borderRadius: '4px',
+        background: srcColor + '33', color: srcColor, flexShrink: '0', marginLeft: '6px',
+      },
+    }, srcLabel),
+    dot,
+  );
+}
 
 /** 加载配置到 JSON 框（只显示用户级，不混项目级） */
 async function loadMcpConfigToJson() {
@@ -30,57 +101,19 @@ async function loadMcpConfigToJson() {
 async function renderMcpList() {
   const list = document.getElementById('cuckoo-mcp-list');
   if (!list) return;
+  bindMcpListDelegation(list);
   try {
     const res = await window.electronAPI.listMcpServers();
     const servers = res && res.success ? res.servers : [];
+    lastServers = servers || [];
     if (!servers || servers.length === 0) {
-      list.innerHTML = '<div class="cuckoo-session-empty">暂无 MCP Server</div>';
+      replaceChildrenOf(list, h('div', { class: 'cuckoo-session-empty' }, '暂无 MCP Server'));
       return;
     }
-    list.innerHTML = servers.map((s: any) => {
-      const status = s.connected ? '已连接' : (s.enabled ? '未连接' : '已禁用');
-      const statusColor = s.connected ? '#4ade80' : (s.enabled ? '#ffc107' : '#5d6280');
-      // 来源标记：项目级 / 用户级
-      const srcLabel = s.source === 'project' ? '项目' : '用户';
-      const srcColor = s.source === 'project' ? '#8b93ff' : '#5d6280';
-      return '<div class="cuckoo-window-item cuckoo-mcp-item" data-mcp-name="' + s.name + '">' +
-        '<span class="cuckoo-window-name">' + s.name + '</span>' +
-        '<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:' + srcColor + '33;color:' + srcColor + ';flex-shrink:0;margin-left:6px;">' + srcLabel + '</span>' +
-        '<span class="cuckoo-mcp-dot" style="width:8px;height:8px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;margin-left:auto;" title="' + status + '"></span>' +
-      '</div>';
-    }).join('');
-
-    list.querySelectorAll('.cuckoo-mcp-item').forEach(el => {
-      el.addEventListener('click', async () => {
-        const name = (el as HTMLElement).dataset.mcpName;
-        const server = servers.find((s: any) => s.name === name);
-        if (!server) return;
-
-        // 点击后立即显示 loading
-        const dot = el.querySelector('.cuckoo-mcp-dot');
-        if (dot) (dot as HTMLElement).style.background = '#ffc107';
-        (el as HTMLElement).style.pointerEvents = 'none';
-
-        try {
-          if (server.connected || server.enabled) {
-            // 已连接或已启用 → 断开/禁用
-            await window.electronAPI.disableMcpServer(name!);
-            showToast('已断开 ' + name, 2000);
-          } else {
-            // 未启用 → 连接
-            await window.electronAPI.enableMcpServer(name!);
-            showToast('已连接 ' + name, 2000);
-          }
-          await renderMcpList();
-          await loadMcpConfigToJson();
-        } catch (err: any) {
-          showToast('操作失败: ' + (err.message || err), 3000);
-          await renderMcpList();
-        }
-      });
-    });
+    replaceChildrenOf(list, ...servers.map((s: any) => renderMcpItem(s)));
   } catch (err) {
-    list.innerHTML = '<div class="cuckoo-session-empty">加载失败</div>';
+    lastServers = [];
+    replaceChildrenOf(list, h('div', { class: 'cuckoo-session-empty' }, '加载失败'));
   }
 }
 
