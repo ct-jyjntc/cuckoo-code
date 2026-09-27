@@ -81,7 +81,31 @@
               <div class="panel-list" id="shell-window-list"></div>
             </div>
             <div class="panel-content" data-panel-content="home" hidden></div>
-            <div class="panel-content" data-panel-content="mcp" hidden></div>
+            <!-- MCP 面板：server 列表 + 用户级配置 JSON 编辑 + 保存/通知 AI -->
+            <div class="panel-content" data-panel-content="mcp" hidden>
+              <div class="panel-toolbar">
+                <button class="panel-btn" id="shell-btn-refresh-mcp" title="刷新 MCP 列表">刷新</button>
+              </div>
+              <div class="panel-list mcp-list" id="shell-mcp-list"></div>
+              <div class="mcp-editor">
+                <textarea id="shell-mcp-json" class="mcp-json" spellcheck="false" placeholder='{
+  "mcpServers": {
+    "server-name": {
+      "command": "npx",
+      "args": ["-y", "some-mcp-server"]
+    }
+  }
+}'></textarea>
+                <div class="mcp-actions">
+                  <button class="panel-btn" id="shell-btn-mcp-save">保存配置</button>
+                </div>
+                <div class="mcp-notify" id="shell-mcp-notify" hidden>
+                  <span class="mcp-notify-text">配置已保存，是否通知 AI？</span>
+                  <button class="panel-btn" id="shell-btn-mcp-notify-send">发送</button>
+                  <button class="panel-btn" id="shell-btn-mcp-notify-cancel">取消</button>
+                </div>
+              </div>
+            </div>
             <div class="panel-content" data-panel-content="task" hidden></div>
             <div class="panel-content" data-panel-content="settings" hidden></div>
             <div class="panel-content" data-panel-content="project" hidden></div>

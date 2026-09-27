@@ -35,6 +35,16 @@ const shellAPI = {
     ipcRenderer.invoke('set-profile-auto-open', { profileId, autoOpen }),
   deleteProfileWindow: (profileId: string) => ipcRenderer.invoke('delete-profile', { profileId }),
   createProfileWindow: () => ipcRenderer.invoke('create-profile-window'),
+  // ===== MCP 面板（handler 用 event.sender 反查窗口取 projectDir，shell webContents 可被命中）=====
+  listMcpServers: (opts?: any) => ipcRenderer.invoke('list-mcp-servers', opts || {}),
+  upsertMcpServer: (server: any) => ipcRenderer.invoke('upsert-mcp-server', { server }),
+  removeMcpServer: (name: string) => ipcRenderer.invoke('remove-mcp-server', { name }),
+  enableMcpServer: (name: string) => ipcRenderer.invoke('enable-mcp-server', { name }),
+  disableMcpServer: (name: string) => ipcRenderer.invoke('disable-mcp-server', { name }),
+  getMcpTools: () => ipcRenderer.invoke('get-mcp-tools'),
+  // 壳页面 → 主进程 → AI 页面 view → bridge preload 的 sendToChat
+  sendToChat: (msg: string, tag?: string, delayMs?: number) =>
+    ipcRenderer.invoke('shell-send-to-chat', { msg, tag, delayMs }),
 };
 
 try {

@@ -132,6 +132,21 @@ function registerShellIpc(): void {
     }
   });
 
+  // 壳页面 → AI 页面消息 relay（MCP 面板「通知 AI」）：
+  // 页面 DOM 操作只能在该窗口 view 的 preload 里做，这里转发给 bridge 的 chat-input 执行 sendToChat
+  ipcMain.handle('shell-send-to-chat', async (event: any, { msg, tag, delayMs }: any = {}) => {
+    const view = viewOf(event);
+    if (!view || typeof msg !== 'string' || !msg) {
+      return { success: false, error: 'view 不存在或消息为空' };
+    }
+    try {
+      view.webContents.send('shell-send-to-chat', { msg, tag, delayMs });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // 壳页面图标栏点击：记录该窗口的面板开关状态并重算 view bounds
   // panelId 必须在已知面板集合内，非法值拒绝（null/空 = 收起，放行）
   ipcMain.handle('shell-panel-state', async (event: any, { panelId }: any = {}) => {

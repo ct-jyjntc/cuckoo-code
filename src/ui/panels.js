@@ -1,7 +1,7 @@
 /**
  * shell 侧栏面板内容（ES Module，供 happy-dom 测试导入）。
- * 承载「会话」与「窗口」两个面板，逻辑对照迁移自 overlay 侧
- * session-list.ts 与 panels/window-manager.ts（功能等价）。
+ * 承载「会话」「窗口」「MCP」三个面板，逻辑对照迁移自 overlay 侧
+ * session-list.ts、panels/window-manager.ts、panels/mcp-manager.ts（功能等价）。
  * shell 是 file:// 自有页面，但会话 id / profile 名等外部数据
  * 一律走 textContent / dataset，不拼 innerHTML。
  */
@@ -243,6 +243,235 @@ export function initPanels(api, doc) {
     btnRefreshWindows.addEventListener('click', function () { renderWindowList(); });
   }
 
+  // ===== MCP 面板（逻辑对照迁移自 overlay panels/mcp-manager.ts） =====
+
+  const mcpList = doc.getElementById('shell-mcp-list');
+  const mcpJson = doc.getElementById('shell-mcp-json');
+  const mcpNotify = doc.getElementById('shell-mcp-notify');
+  /** 最近一次渲染的 server 列表（委托回调按名字查找状态） */
+  let lastMcpServers = [];
+
+  function renderMcpEmpty(text) {
+    if (!mcpList) return;
+    mcpList.textContent = '';
+    mcpList.appendChild(el(doc, 'div', 'panel-empty', text));
+  }
+
+  function renderMcpItem(s) {
+    const status = s.connected ? '已连接' : (s.enabled ? '未连接' : '已禁用');
+    const dotClass = s.connected ? 'connected' : (s.enabled ? 'enabled' : 'disabled');
+    const srcLabel = s.source === 'project' ? '项目' : '用户';
+    const srcClass = s.source === 'project' ? 'project' : 'user';
+    const item = el(doc, 'div', 'panel-item mcp-item');
+    item.dataset.mcpName = String(s.name);
+    item.appendChild(el(doc, 'span', 'mcp-name', String(s.name)));
+    item.appendChild(el(doc, 'span', 'mcp-src ' + srcClass, srcLabel));
+    const dot = el(doc, 'span', 'mcp-dot ' + dotClass);
+    dot.title = status;
+    item.appendChild(dot);
+    return item;
+  }
+
+  /** 渲染 MCP server 列表 */
+  async function renderMcpList() {
+    if (!mcpList) return;
+    if (!api.listMcpServers) {
+      renderMcpEmpty('API 不可用');
+      return;
+    }
+    try {
+      const res = await api.listMcpServers();
+      const servers = res && res.success ? res.servers : [];
+      lastMcpServers = servers || [];
+      if (!servers || servers.length === 0) {
+        renderMcpEmpty('暂无 MCP Server');
+        return;
+      }
+      mcpList.textContent = '';
+      for (const s of servers) mcpList.appendChild(renderMcpItem(s));
+    } catch (err) {
+      console.error('[Cuckoo Shell] 渲染 MCP 列表失败:', err);
+      lastMcpServers = [];
+      renderMcpEmpty('加载失败');
+    }
+  }
+
+  /** 加载配置到 JSON 框（只显示用户级，不混项目级） */
+  async function loadMcpConfigToJson() {
+    if (!mcpJson || !api.listMcpServers) return;
+    try {
+      const res = await api.listMcpServers({ scope: 'user' });
+      const servers = res && res.success ? res.servers : [];
+      const mcpServers = {};
+      for (const s of servers) {
+        const def = {};
+        if (s.type === 'http') {
+          if (s.url) def.url = s.url;
+          if (s.headers) def.headers = s.headers;
+        } else {
+          if (s.command) def.command = s.command;
+          if (s.args && s.args.length) def.args = s.args;
+          if (s.env) def.env = s.env;
+        }
+        mcpServers[s.name] = def;
+      }
+      mcpJson.value = JSON.stringify({ mcpServers: mcpServers }, null, 2);
+    } catch (err) {
+      console.error('[Cuckoo Shell] 加载 MCP 配置失败:', err);
+    }
+  }
+
+  if (mcpList) {
+    // 点击 server 条目：已连接/已启用 → 断开，否则 → 连接
+    mcpList.addEventListener('click', async function (e) {
+      const item = e.target.closest('.mcp-item');
+      if (!item || !mcpList.contains(item)) return;
+      const name = item.dataset.mcpName;
+      const server = lastMcpServers.find(function (s) { return s.name === name; });
+      if (!server) return;
+      try {
+        if (server.connected || server.enabled) {
+          await api.disableMcpServer(name);
+          showPanelToast(doc, '已断开 ' + name, 2000);
+        } else {
+          await api.enableMcpServer(name);
+          showPanelToast(doc, '已连接 ' + name, 2000);
+        }
+        await renderMcpList();
+        await loadMcpConfigToJson();
+      } catch (err) {
+        showPanelToast(doc, '操作失败: ' + (err && err.message ? err.message : err), 3000);
+        await renderMcpList();
+      }
+    });
+  }
+
+  /** 校验单个 server 定义，返回错误文案或 null（与 overlay 版提示一致） */
+  function validateMcpServerDef(name, def) {
+    if (!def || typeof def !== 'object' || Array.isArray(def)) {
+      return '配置错误：server "' + name + '" 的定义必须是对象';
+    }
+    const hasUrl = def.url !== undefined;
+    const hasCommand = def.command !== undefined;
+    if (hasUrl) {
+      if (typeof def.url !== 'string' || !def.url.trim()) {
+        return '配置错误：server "' + name + '" 的 url 必须是非空字符串';
+      }
+      if (hasCommand) {
+        return '配置错误：server "' + name + '" 不能同时指定 url 和 command';
+      }
+    } else if (hasCommand) {
+      if (typeof def.command !== 'string' || !def.command.trim()) {
+        return '配置错误：server "' + name + '" 的 command 必须是非空字符串';
+      }
+    } else {
+      return '配置错误：server "' + name + '" 缺少 command 或 url';
+    }
+    if (def.args !== undefined && !Array.isArray(def.args)) {
+      return '配置错误：server "' + name + '" 的 args 必须是数组';
+    }
+    if (def.env !== undefined && (typeof def.env !== 'object' || def.env === null || Array.isArray(def.env))) {
+      return '配置错误：server "' + name + '" 的 env 必须是对象';
+    }
+    if (def.headers !== undefined && (typeof def.headers !== 'object' || def.headers === null || Array.isArray(def.headers))) {
+      return '配置错误：server "' + name + '" 的 headers 必须是对象';
+    }
+    return null;
+  }
+
+  function hideMcpNotify() {
+    if (mcpNotify) mcpNotify.hidden = true;
+  }
+
+  /** 保存 MCP 配置（校验 → 删除旧 server → upsert → 显示「通知 AI」确认条） */
+  async function handleMcpSave() {
+    if (!mcpJson || !mcpJson.value.trim()) {
+      showPanelToast(doc, '请输入配置', 3000);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(mcpJson.value);
+      if (!parsed.mcpServers || typeof parsed.mcpServers !== 'object') {
+        showPanelToast(doc, '配置格式错误，需要 mcpServers 对象', 3000);
+        return;
+      }
+      // 发现错误立即中止，不删旧配置、不覆盖编辑框
+      for (const entry of Object.entries(parsed.mcpServers)) {
+        const errText = validateMcpServerDef(entry[0], entry[1]);
+        if (errText) {
+          showPanelToast(doc, errText, 4000);
+          return;
+        }
+      }
+
+      // 先删除 JSON 里不存在的旧 server（只针对用户级，避免误删项目级）
+      const oldRes = await api.listMcpServers({ scope: 'user' });
+      const oldServers = (oldRes && oldRes.success && oldRes.servers) || [];
+      const newNames = new Set(Object.keys(parsed.mcpServers));
+      for (const old of oldServers) {
+        if (!newNames.has(old.name)) {
+          await api.removeMcpServer(old.name);
+        }
+      }
+
+      // 逐个 upsert 新配置
+      for (const entry of Object.entries(parsed.mcpServers)) {
+        const name = entry[0];
+        const def = entry[1];
+        await api.upsertMcpServer({
+          name: name,
+          type: def && def.url ? 'http' : 'stdio',
+          command: def && def.command,
+          args: (def && def.args) || [],
+          url: def && def.url,
+          headers: def && def.headers,
+          env: def && def.env,
+        });
+      }
+      showPanelToast(doc, '配置已保存', 2200);
+      await renderMcpList();
+      await loadMcpConfigToJson();
+      // 等价于 overlay 的 showConfirmDialog：面板内确认条，不自动发送
+      if (mcpNotify) mcpNotify.hidden = false;
+    } catch (err) {
+      showPanelToast(doc, '保存失败: ' + (err && err.message ? err.message : err), 3000);
+    }
+  }
+
+  const btnMcpSave = doc.getElementById('shell-btn-mcp-save');
+  if (btnMcpSave) {
+    btnMcpSave.addEventListener('click', function () { handleMcpSave(); });
+  }
+  const btnRefreshMcp = doc.getElementById('shell-btn-refresh-mcp');
+  if (btnRefreshMcp) {
+    btnRefreshMcp.addEventListener('click', function () { renderMcpList(); });
+  }
+  const btnMcpNotifySend = doc.getElementById('shell-btn-mcp-notify-send');
+  if (btnMcpNotifySend) {
+    btnMcpNotifySend.addEventListener('click', async function () {
+      hideMcpNotify();
+      try {
+        const res = await api.getMcpTools();
+        const tools = res && res.success ? res.tools : [];
+        const serverNames = Array.from(new Set(tools.map(function (t) { return t.server; })));
+        let msg = '【MCP 配置已更新】\n\n';
+        if (serverNames.length === 0) {
+          msg += '当前没有已连接的 MCP server。';
+        } else {
+          msg += '可用的 MCP server：' + serverNames.join('、') + '。\n';
+          msg += '需要时用 mcpListServers() 查看概览，或用 mcpGetTools(serverName) 查看具体工具。';
+        }
+        if (api.sendToChat) await api.sendToChat(msg, 'MCP信息', 300);
+      } catch (err) {
+        console.error('[Cuckoo Shell] 发送 MCP 信息失败:', err);
+      }
+    });
+  }
+  const btnMcpNotifyCancel = doc.getElementById('shell-btn-mcp-notify-cancel');
+  if (btnMcpNotifyCancel) {
+    btnMcpNotifyCancel.addEventListener('click', hideMcpNotify);
+  }
+
   // ===== 面板切换：显隐内容容器，按需渲染 =====
   function handlePanelChange(panelId) {
     const contents = doc.querySelectorAll('.panel-content');
@@ -251,11 +480,17 @@ export function initPanels(api, doc) {
     }
     if (panelId === 'chat') renderSessionList();
     if (panelId === 'window') renderWindowList();
+    if (panelId === 'mcp') {
+      renderMcpList();
+      loadMcpConfigToJson();
+    }
   }
 
   return {
     handlePanelChange: handlePanelChange,
     renderSessionList: renderSessionList,
     renderWindowList: renderWindowList,
+    renderMcpList: renderMcpList,
+    loadMcpConfigToJson: loadMcpConfigToJson,
   };
 }
