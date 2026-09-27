@@ -20,6 +20,17 @@ export const SHELL_LAYOUT = {
   CARD_RADIUS: 12,
 } as const;
 
+/**
+ * shell 侧栏已知面板 id 集合（与 src/ui/shell.html 图标栏 data-panel 值一一对应）。
+ * shell-panel-state IPC 据此拒绝非法 panelId。
+ */
+export const SHELL_PANEL_IDS = ['home', 'chat', 'window', 'mcp', 'task', 'settings', 'project'] as const;
+
+/** 判断是否为合法的 shell 面板 id */
+export function isShellPanelId(v: unknown): v is string {
+  return typeof v === 'string' && (SHELL_PANEL_IDS as readonly string[]).includes(v);
+}
+
 export interface ViewBounds {
   x: number;
   y: number;

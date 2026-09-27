@@ -8,6 +8,8 @@ import assert from 'node:assert';
 
 import {
   SHELL_LAYOUT,
+  SHELL_PANEL_IDS,
+  isShellPanelId,
   computeViewBounds,
 } from '../../src/app/layout.js';
 
@@ -50,5 +52,26 @@ describe('computeViewBounds()', () => {
     const closed = computeViewBounds(72, 64, false);
     assert.strictEqual(closed.width, 0);
     assert.strictEqual(closed.height, 0);
+  });
+});
+
+describe('SHELL_PANEL_IDS / isShellPanelId()', () => {
+  it('已知面板集合与 shell.html 图标栏一致', () => {
+    assert.deepStrictEqual(
+      [...SHELL_PANEL_IDS],
+      ['home', 'chat', 'window', 'mcp', 'task', 'settings', 'project']
+    );
+  });
+
+  it('合法 id 通过，非法值被拒绝', () => {
+    for (const id of SHELL_PANEL_IDS) {
+      assert.strictEqual(isShellPanelId(id), true);
+    }
+    assert.strictEqual(isShellPanelId('sessions'), false);
+    assert.strictEqual(isShellPanelId(''), false);
+    assert.strictEqual(isShellPanelId(null), false);
+    assert.strictEqual(isShellPanelId(undefined), false);
+    assert.strictEqual(isShellPanelId(42), false);
+    assert.strictEqual(isShellPanelId('chat; DROP TABLE'), false);
   });
 });

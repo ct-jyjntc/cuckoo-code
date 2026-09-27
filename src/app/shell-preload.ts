@@ -24,6 +24,17 @@ const shellAPI = {
     ipcRenderer.on('shell-total-updated', (_e: any, data: any) => cb(data));
   },
   getSystemTotal: () => ipcRenderer.invoke('get-system-total'),
+  // ===== 会话面板（通道 handler 用 event.sender 反查窗口，shell webContents 可被命中）=====
+  listSessions: () => ipcRenderer.invoke('list-sessions'),
+  navigateSession: (sessionId: string) => ipcRenderer.invoke('navigate-session', { sessionId }),
+  // ===== 窗口面板（profile 管理通道均不依赖 sender，直接可用）=====
+  listProfiles: () => ipcRenderer.invoke('list-profiles'),
+  listProviders: () => ipcRenderer.invoke('list-providers'),
+  openProfileWindow: (profileId: string) => ipcRenderer.invoke('open-profile-window', { profileId }),
+  setProfileAutoOpen: (profileId: string, autoOpen: boolean) =>
+    ipcRenderer.invoke('set-profile-auto-open', { profileId, autoOpen }),
+  deleteProfileWindow: (profileId: string) => ipcRenderer.invoke('delete-profile', { profileId }),
+  createProfileWindow: () => ipcRenderer.invoke('create-profile-window'),
 };
 
 try {

@@ -67,7 +67,26 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
             </button>
           </div>
-          <div class="panel-body"><!-- 面板内容由后续任务填充 --></div>
+          <div class="panel-body">
+            <!-- 会话面板：当前项目目录关联的会话列表 -->
+            <div class="panel-content" data-panel-content="chat" hidden>
+              <div class="panel-list" id="shell-session-list"></div>
+            </div>
+            <!-- 窗口面板：profile 列表 + 新建窗口 -->
+            <div class="panel-content" data-panel-content="window" hidden>
+              <div class="panel-toolbar">
+                <button class="panel-btn" id="shell-btn-new-window" title="新建窗口（显示平台选择页）">+ 新建窗口</button>
+                <button class="panel-btn" id="shell-btn-refresh-windows" title="刷新窗口列表">刷新</button>
+              </div>
+              <div class="panel-list" id="shell-window-list"></div>
+            </div>
+            <div class="panel-content" data-panel-content="home" hidden></div>
+            <div class="panel-content" data-panel-content="mcp" hidden></div>
+            <div class="panel-content" data-panel-content="task" hidden></div>
+            <div class="panel-content" data-panel-content="settings" hidden></div>
+            <div class="panel-content" data-panel-content="project" hidden></div>
+          </div>
+          <div class="panel-toast" id="panel-toast" hidden></div>
         </aside>
         <div class="viewport"></div>
       </div>
@@ -75,7 +94,10 @@
   </div>
 <script type="module">
   import { initShell } from './shell.js';
-  initShell(window.shellAPI || {}, document);
+  import { initPanels } from './panels.js';
+  const api = window.shellAPI || {};
+  const panels = initPanels(api, document);
+  initShell(api, document, { onPanelChange: panels.handlePanelChange });
 </script>
 </body>
 </html>

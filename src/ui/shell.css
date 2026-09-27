@@ -118,3 +118,63 @@ html, body {
 .panel-close svg { width: 14px; height: 14px; }
 .panel-body { flex: 1; overflow-y: auto; }
 .viewport { flex: 1; }
+
+/* ===== 面板内容（会话 / 窗口） ===== */
+.panel { position: relative; }
+.panel-content { height: 100%; display: flex; flex-direction: column; }
+.panel-content[hidden] { display: none; }
+.panel-toolbar {
+  display: flex; gap: 6px; padding: 8px 10px; flex-shrink: 0;
+  border-bottom: 1px solid var(--ck-border);
+}
+.panel-btn {
+  height: 26px; padding: 0 10px;
+  border: 1px solid var(--ck-border); border-radius: 8px; cursor: pointer;
+  background: var(--ck-surface); color: var(--ck-text);
+  font-size: 12px; font-family: inherit;
+  transition: background .15s;
+}
+.panel-btn:hover { background: var(--ck-surface-hover); }
+.panel-list {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 8px;
+}
+.panel-empty { padding: 18px 10px; text-align: center; color: var(--ck-text-dim); font-size: 12px; }
+/* 列表项：参考 ChatGPT 侧栏（圆角 8px、hover 浅灰 #ececf1） */
+.panel-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: var(--ck-text);
+  transition: background .12s;
+}
+.panel-item:hover { background: #ececf1; }
+.session-item .session-id {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.session-item .session-action { flex-shrink: 0; font-size: 12px; color: var(--ck-text-dim); }
+.window-item .window-auto {
+  flex-shrink: 0; display: flex; align-items: center; gap: 3px;
+  font-size: 12px; color: var(--ck-text-dim); cursor: pointer;
+}
+.window-item .window-left {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+}
+.window-item .window-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.window-item .window-sep { color: var(--ck-border); flex-shrink: 0; }
+.window-item .window-status { flex-shrink: 0; font-size: 12px; color: var(--ck-text-dim); }
+.window-item .window-del { flex-shrink: 0; font-size: 12px; color: var(--ck-text-dim); }
+.window-item .window-del:hover { color: #d5463c; }
+/* 面板内轻提示 */
+.panel-toast {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  max-width: 240px; padding: 6px 12px;
+  background: rgba(13, 13, 13, .85); color: #fff;
+  font-size: 12px; border-radius: 8px;
+  pointer-events: none; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.panel-toast[hidden] { display: none; }

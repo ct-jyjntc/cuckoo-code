@@ -23,8 +23,9 @@ export function formatTokenCount(n) {
   return String(Math.round(n));
 }
 
-export function initShell(api, doc) {
+export function initShell(api, doc, hooks) {
   api = api || {};
+  hooks = hooks || {};
   const input = doc.getElementById('url-input');
   const btnBack = doc.getElementById('btn-back');
   const btnForward = doc.getElementById('btn-forward');
@@ -74,6 +75,7 @@ export function initShell(api, doc) {
     }
     panel.hidden = !panelId;
     if (panelId) panelTitle.textContent = PANEL_NAMES[panelId] || '';
+    if (hooks.onPanelChange) hooks.onPanelChange(panelId);
     if (api.setPanelOpen) api.setPanelOpen(panelId);
   }
 

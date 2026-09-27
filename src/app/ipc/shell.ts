@@ -4,6 +4,7 @@
  */
 import { createRequire } from 'node:module';
 import * as windowState from '../window.js';
+import { isShellPanelId } from '../layout.js';
 import { getProvider } from '../../providers/registry.js';
 import { setWindowCumulative, getTotal, cleanupSubagentKeys } from '../token-stats.js';
 
@@ -132,7 +133,11 @@ function registerShellIpc(): void {
   });
 
   // 壳页面图标栏点击：记录该窗口的面板开关状态并重算 view bounds
+  // panelId 必须在已知面板集合内，非法值拒绝（null/空 = 收起，放行）
   ipcMain.handle('shell-panel-state', async (event: any, { panelId }: any = {}) => {
+    if (panelId !== null && panelId !== undefined && panelId !== '' && !isShellPanelId(panelId)) {
+      return { success: false, error: '未知面板 id' };
+    }
     const ctx = windowState.getContextByWebContents(event.sender);
     if (!ctx) return { success: false, error: '窗口上下文不存在' };
     ctx.panelId = typeof panelId === 'string' && panelId ? panelId : null;
