@@ -111,6 +111,21 @@ test('resetSettings 恢复默认并持久化，保留 migrated 标记', () => {
   assert.strictEqual(raw.migrated, true);
 });
 
+test('resetSettings 保留 autoCompact 配置（恢复默认不含自动压缩，旧 localStorage 语义）', () => {
+  store.saveSettings({ autoCompactEnabled: true, autoCompactThreshold: 55, retryCount: 3, watchdogCount: 9 });
+  const s = store.resetSettings();
+  // 其余字段回默认
+  assert.strictEqual(s.retryCount, 10);
+  assert.strictEqual(s.watchdogCount, 3);
+  // autoCompact 两字段保持现值
+  assert.strictEqual(s.autoCompactEnabled, true);
+  assert.strictEqual(s.autoCompactThreshold, 55);
+  // 持久化到文件
+  const raw = JSON.parse(fs.readFileSync(filePath(), 'utf-8'));
+  assert.strictEqual(raw.autoCompactEnabled, true);
+  assert.strictEqual(raw.autoCompactThreshold, 55);
+});
+
 test('旧数据迁移：首次写入并标记 migrated，第二次调用不再覆盖', () => {
   const applied1 = store.applyLegacyMigration({ retryCount: 42, retryPrompt: '旧提示词' });
   assert.strictEqual(applied1, true);

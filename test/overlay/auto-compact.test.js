@@ -165,3 +165,37 @@ test('响应缺少 tokenUsage 时不触发也不报错', async () => {
   deps.responseCb('', {});
   assert.strictEqual(deps.compactCalls.length, 0);
 });
+
+test('设置广播到达：运行态与 UI 同步刷新（模拟另一窗口改动自动压缩配置）', () => {
+  const deps = makeDeps();
+  autoCompact.initAutoCompact(deps);
+  // 另一窗口保存后，主进程广播 settings-changed → applyRemoteSettings
+  settingsMod.applyRemoteSettings({
+    ...settingsMod.getCachedSettings(),
+    autoCompactEnabled: true,
+    autoCompactThreshold: 20,
+  });
+  assert.strictEqual(document.getElementById('cuckoo-auto-compact-enabled').checked, true);
+  assert.strictEqual(Number(document.getElementById('cuckoo-auto-compact-threshold').value), 20);
+  deps.responseCb('', { tokenUsage: { accumulatedTokens: 200000 } });
+  assert.strictEqual(deps.compactCalls.length, 1);
+});
+
+test('恢复默认不影响自动压缩配置（reset 返回的设置保留 autoCompact 字段）', async () => {
+  const deps = makeDeps();
+  api.resetSettings = async () => ({
+    success: true,
+    // 主进程 reset 排除 autoCompact：返回的设置里保留现值
+    settings: { ...settingsMod.getCachedSettings(), autoCompactEnabled: true, autoCompactThreshold: 33 },
+  });
+  autoCompact.initAutoCompact(deps);
+  setForm(true, 33);
+  document.getElementById('cuckoo-auto-compact-save').click();
+  await flush();
+  await settingsMod.resetSettings();
+  // 运行态与 UI 仍是 33 万 / 开启
+  assert.strictEqual(document.getElementById('cuckoo-auto-compact-enabled').checked, true);
+  assert.strictEqual(Number(document.getElementById('cuckoo-auto-compact-threshold').value), 33);
+  deps.responseCb('', { tokenUsage: { accumulatedTokens: 330000 } });
+  assert.strictEqual(deps.compactCalls.length, 1);
+});

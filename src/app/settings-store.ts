@@ -114,10 +114,15 @@ function saveSettings(patch: unknown): Settings {
   return next;
 }
 
-/** 恢复默认设置并持久化；保留 migrated 标记（迁移发生过就是发生过）。 */
+/** 「恢复默认」不含自动压缩配置（沿用旧 localStorage 时代的语义：autoCompact 由独立区块管理） */
+const RESET_EXCLUDED: (keyof Settings)[] = ['autoCompactEnabled', 'autoCompactThreshold'];
+
+/** 恢复默认设置并持久化；保留 migrated 标记与 RESET_EXCLUDED 字段的现值。 */
 function resetSettings(): Settings {
   const raw = readRaw();
-  const next = { ...DEFAULT_SETTINGS };
+  const cur = normalize(raw);
+  const next: Settings = { ...DEFAULT_SETTINGS };
+  for (const k of RESET_EXCLUDED) (next as any)[k] = cur[k];
   writeRaw({ ...next, migrated: raw.migrated === true });
   return next;
 }

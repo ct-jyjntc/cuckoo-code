@@ -4,7 +4,7 @@
  * 设置区 UI 同步、收到回复后按阈值触发压缩。
  * deps 显式注入（响应订阅、压缩触发、UI 提示），便于测试。
  */
-import { getCachedSettings, saveSettings } from './settings.js';
+import { getCachedSettings, saveSettings, onSettingsChanged } from './settings.js';
 
 // 配置：是否启用 + 阈值（单位：万 token）
 let autoCompactEnabled = false;
@@ -73,9 +73,11 @@ function checkAutoCompact(deps: AutoCompactDeps, server: any): void {
 /**
  * 初始化自动压缩：加载配置、绑定保存按钮、订阅回复事件做阈值检查。
  * 仅在收到成功回复事件时检查，避免失败/停止时因旧 token 值反复触发压缩。
+ * 订阅设置变更（本窗口保存 / 主进程广播）：保持运行态与 UI 不分裂。
  */
 function initAutoCompact(deps: AutoCompactDeps): void {
   loadAutoCompactConfig();
+  onSettingsChanged(() => loadAutoCompactConfig());
   const saveBtn = document.getElementById('cuckoo-auto-compact-save');
   saveBtn?.addEventListener('click', () => { void saveAutoCompactConfig(deps.notify); });
   deps.onResponse?.((_text: string, meta: any) => {

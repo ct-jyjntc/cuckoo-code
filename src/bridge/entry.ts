@@ -19,7 +19,7 @@ import { startInterceptObserver, onInterceptedResponse } from './intercept/obser
 import { startRetryEngine } from './loop/retry.js';
 import { startSessionWatcher, startWatchdog, checkSessionChange } from './loop/watchdog.js';
 import { initSubagentIfNeeded } from './subagent.js';
-import { initSettings } from '../overlay/settings.js';
+import { initSettings, applyRemoteSettings } from '../overlay/settings.js';
 
 const require = createRequire(import.meta.url);
 const { webFrame, ipcRenderer } = require('electron');
@@ -101,6 +101,10 @@ async function init(): Promise<void> {
   try {
     // 设置先于一切读取方：迁移旧 localStorage 数据 → 拉取主进程设置到缓存 → 镜像 hook 键
     await initSettings();
+    // 另一窗口保存/重置设置时，主进程广播 'settings-changed'，这里刷新本窗口缓存
+    ipcRenderer.on('settings-changed', (_e: any, s: any) => {
+      try { applyRemoteSettings(s); } catch (_) { /* ignore */ }
+    });
     ui.injectCSS();
     ui.injectOverlay();
     projectDir.initProjectDirSection();

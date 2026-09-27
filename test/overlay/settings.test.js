@@ -166,3 +166,29 @@ test('electronAPI 报错：initSettings 兜底默认值，saveSettings 返回 fa
   assert.strictEqual(ok, false);
   assert.strictEqual(settingsMod.getCachedSettings().retryCount, 10);
 });
+
+test('applyRemoteSettings 刷新缓存、镜像并通知订阅者（模拟另一窗口保存后的广播）', async () => {
+  await settingsMod.initSettings();
+  const seen = [];
+  settingsMod.onSettingsChanged((s) => seen.push(s.retryCount));
+  settingsMod.applyRemoteSettings({ ...DEFAULT_SETTINGS, retryCount: 6, xhrIdleTimeout: 60000 });
+  assert.strictEqual(settingsMod.getCachedSettings().retryCount, 6);
+  assert.strictEqual(localStorage.getItem(KEYS.xhrIdleTimeout), '60000');
+  assert.deepStrictEqual(seen, [6]);
+});
+
+test('applyRemoteSettings 非法载荷忽略', () => {
+  settingsMod.applyRemoteSettings(null);
+  settingsMod.applyRemoteSettings('x');
+  assert.strictEqual(settingsMod.getCachedSettings().retryCount, 10);
+});
+
+test('迁移时 xhr-idle-timeout 旧键不被删除，由镜像覆盖（无空窗期）', async () => {
+  localStorage.setItem(KEYS.xhrIdleTimeout, '123456');
+  localStorage.setItem(KEYS.retryCount, '8');
+  await settingsMod.initSettings();
+  assert.strictEqual(api.migrateCalls.length, 1);
+  // 旧键始终存在（未被 removeItem），最终被镜像为权威值
+  assert.strictEqual(localStorage.getItem(KEYS.xhrIdleTimeout), '300000');
+  assert.strictEqual(localStorage.getItem(KEYS.retryCount), null);
+});
