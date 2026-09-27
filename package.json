@@ -148,7 +148,9 @@
       "src/prompt/*.md",
       "src/overlay/template/*.html",
       "src/overlay/template/*.css",
-      "src/ui/*.html"
+      "src/ui/*.html",
+      "src/ui/*.css",
+      "src/ui/*.js"
     ]
   },
   "dependencies": {

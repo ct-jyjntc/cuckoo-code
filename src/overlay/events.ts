@@ -47,7 +47,7 @@ function refreshTokenForCurrentSession(): void {
 }
 
 /**
- * 「卡住了?点我」按钮：向 AI 发一句继续，催促其接着之前的工作
+ * 「催促继续」按钮：向 AI 发一句继续，催促其接着之前的工作
  */
 async function handleManualParseDispatch() {
   if (!(await sendToChat('刚才卡住了请继续 爱你哦', '继续', 300))) {
