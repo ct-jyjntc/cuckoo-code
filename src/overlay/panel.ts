@@ -194,6 +194,23 @@ function displayCommand(cmdData: any): void {
 }
 
 /**
+ * 显示工具执行结果（展开结果区并更新状态与输出）
+ * @param status - 'success' | 'error'
+ * @param output - 结果输出文本
+ */
+function displayResult(status: 'success' | 'error', output: string): void {
+  const resultSection = document.getElementById('cuckoo-result-section');
+  const resultStatus = document.getElementById('cuckoo-result-status');
+  const resultOutput = document.getElementById('cuckoo-result-output');
+  if (resultSection) resultSection.classList.remove('cuckoo-hidden');
+  if (resultStatus) {
+    resultStatus.textContent = status === 'success' ? '✅ JS 脚本执行成功' : '❌ JS 脚本执行失败';
+    resultStatus.className = 'cuckoo-result-status ' + status;
+  }
+  if (resultOutput) resultOutput.textContent = output;
+}
+
+/**
  * 确认执行当前显示的命令
  * 已移除：确认执行按钮及相关交互。保留空函数以防其他引用。
  */
@@ -386,6 +403,7 @@ export {
   showOverlay,
   hideOverlay,
   displayCommand,
+  displayResult,
   handleExecute,
   handleIgnore,
   addHistory,

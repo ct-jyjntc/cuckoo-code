@@ -15,6 +15,7 @@
 import { sendToChat } from '../../overlay/chat-input.js';
 import { onAiError, onInterceptedResponse } from '../intercept/observer.js';
 import { showToast } from '../../overlay/panel.js';
+import { showRetryCountdown, hideRetryCountdown } from '../../overlay/retry-countdown.js';
 import { withLog } from '../../infra/with-log.js';
 import { getProviderByUrl } from '../../providers/registry.js';
 import { KEYS } from '../../overlay/storage.js';
@@ -83,8 +84,7 @@ let clearPending = function clearPending(): void {
   if (pending.timer) clearTimeout(pending.timer);
   if (pending.countdownTimer) clearInterval(pending.countdownTimer);
   pending = null;
-  const box = document.getElementById('cuckoo-retry-countdown');
-  if (box) box.classList.add('cuckoo-hidden');
+  hideRetryCountdown();
 };
 
 let onSuccess = function onSuccess(): void {
@@ -99,38 +99,14 @@ let cancelPending = function cancelPending(): void {
 };
 
 let showCountdown = function showCountdown(totalMs: number): any {
-  const box = ensureCountdownBox();
-  const textEl = box.querySelector('#cuckoo-retry-countdown-text');
-  const cancelBtn = box.querySelector('#cuckoo-retry-cancel');
-  cancelBtn.onclick = cancelPending;
-  box.classList.remove('cuckoo-hidden');
-
   let remain = Math.ceil(totalMs / 1000);
-  function render() {
-    if (textEl) textEl.textContent = '请求失败，' + remain + ' 秒后自动重试...';
-  }
-  render();
+  showRetryCountdown(remain, cancelPending);
   const cd = setInterval(() => {
     remain -= 1;
     if (remain <= 0) { clearInterval(cd); return; }
-    render();
+    showRetryCountdown(remain, cancelPending);
   }, 1000);
   return cd;
-};
-
-let ensureCountdownBox = function ensureCountdownBox(): any {
-  let box = document.getElementById('cuckoo-retry-countdown');
-  if (box) return box;
-  box = document.createElement('div');
-  box.id = 'cuckoo-retry-countdown';
-  box.className = 'cuckoo-retry-countdown cuckoo-hidden';
-  box.innerHTML =
-    '<div class="cuckoo-retry-countdown-inner">' +
-    '  <span id="cuckoo-retry-countdown-text">等待重试...</span>' +
-    '  <button id="cuckoo-retry-cancel" class="cuckoo-btn-text">取消</button>' +
-    '</div>';
-  document.body.appendChild(box);
-  return box;
 };
 
 let handleError = function handleError(detail: any): void {
@@ -171,8 +147,7 @@ let handleError = function handleError(detail: any): void {
 
   const cdTimer = showCountdown(delay);
   const timer = setTimeout(() => {
-    const box = document.getElementById('cuckoo-retry-countdown');
-    if (box) box.classList.add('cuckoo-hidden');
+    hideRetryCountdown();
     if (pending && pending.countdownTimer) clearInterval(pending.countdownTimer);
     pending = null;
     try {
@@ -204,7 +179,6 @@ clearPending = withLog(clearPending, 'retry.clearPending');
 onSuccess = withLog(onSuccess, 'retry.onSuccess');
 cancelPending = withLog(cancelPending, 'retry.cancelPending');
 showCountdown = withLog(showCountdown, 'retry.showCountdown');
-ensureCountdownBox = withLog(ensureCountdownBox, 'retry.ensureCountdownBox');
 handleError = withLog(handleError, 'retry.handleError');
 startRetryEngine = withLog(startRetryEngine, 'retry.startRetryEngine');
 

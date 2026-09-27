@@ -2,7 +2,7 @@
  * 工具/JS 脚本执行器（与回复获取方式无关）
  * 拦截模式和 DOM 模式共用的执行逻辑：执行工具调用、执行 JS 脚本、通知 UI。
  */
-import { showToast, setTaskStatus, addHistory, truncate, flashBadge } from '../../overlay/panel.js';
+import { showToast, setTaskStatus, addHistory, truncate, flashBadge, displayCommand, displayResult } from '../../overlay/panel.js';
 
 // 是否正在执行命令或工具
 let isExecuting = false;
@@ -11,10 +11,7 @@ let isExecuting = false;
  * 通知用户检测到 JS 工具脚本（更新预览 + 闪烁徽章）
  */
 function notifyJsScriptDetected(code: string): void {
-  const preview = document.getElementById('cuckoo-cmd-preview');
-  if (preview) {
-    preview.textContent = '[JS 工具脚本]' + String.fromCharCode(10) + code;
-  }
+  displayCommand({ command: '[JS 工具脚本]' + String.fromCharCode(10) + code });
   flashBadge('Cuckoo Code - JS 工具脚本检测到');
 }
 
@@ -32,27 +29,10 @@ async function handleJsToolScript(code: string): Promise<{ code: string; result:
   try {
     const result = await window.electronAPI.executeJs(code, callId);
 
-    const resultSection = document.getElementById('cuckoo-result-section');
-    const resultStatus = document.getElementById('cuckoo-result-status');
-    const resultOutput = document.getElementById('cuckoo-result-output');
-    if (resultSection) resultSection.classList.remove('cuckoo-hidden');
-
     if (result.success) {
-      if (resultStatus) {
-        resultStatus.textContent = '✅ JS 脚本执行成功';
-        resultStatus.className = 'cuckoo-result-status success';
-      }
-      if (resultOutput) {
-        resultOutput.textContent = result.output || '(脚本执行完成，无输出)';
-      }
+      displayResult('success', result.output || '(脚本执行完成，无输出)');
     } else {
-      if (resultStatus) {
-        resultStatus.textContent = '❌ JS 脚本执行失败';
-        resultStatus.className = 'cuckoo-result-status error';
-      }
-      if (resultOutput) {
-        resultOutput.textContent = result.error || '未知错误';
-      }
+      displayResult('error', result.error || '未知错误');
     }
 
     addHistory({
@@ -66,17 +46,7 @@ async function handleJsToolScript(code: string): Promise<{ code: string; result:
     return { code, result };
   } catch (err: any) {
     console.error('[Cuckoo Code] JS 工具脚本执行异常:', err);
-    const resultSection = document.getElementById('cuckoo-result-section');
-    const resultStatus = document.getElementById('cuckoo-result-status');
-    const resultOutput = document.getElementById('cuckoo-result-output');
-    if (resultSection) resultSection.classList.remove('cuckoo-hidden');
-    if (resultStatus) {
-      resultStatus.textContent = '❌ 系统错误';
-      resultStatus.className = 'cuckoo-result-status error';
-    }
-    if (resultOutput) {
-      resultOutput.textContent = err.message || String(err);
-    }
+    displayResult('error', err.message || String(err));
     return { code, result: { success: false, error: '系统异常: ' + (err.message || String(err)) } };
   } finally {
     isExecuting = false;

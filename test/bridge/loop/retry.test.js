@@ -27,12 +27,16 @@ function setupGlobals() {
     createElement: () => ({
       classList: { add() {}, remove() {}, toggle() {} },
       style: {},
+      isConnected: true,
       appendChild() {},
+      addEventListener() {},
+      removeEventListener() {},
       querySelector: () => ({ onclick: null, textContent: '' }),
       set innerHTML(v) {},
       get innerHTML() { return ''; },
     }),
-    body: { appendChild() {} },
+    createTextNode: (t) => ({ nodeType: 3, textContent: String(t) }),
+    body: { appendChild() {}, contains: () => true },
   };
   return { store, listeners };
 }

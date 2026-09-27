@@ -97,3 +97,25 @@ describe('renderHistory', () => {
     assert.strictEqual(document.getElementById('cuckoo-cmd-preview').textContent, entry.command);
   });
 });
+
+describe('displayResult', () => {
+  it('error：展开结果区，状态 class/文案与输出更新', () => {
+    panel.displayResult('error', 'x');
+    const section = document.getElementById('cuckoo-result-section');
+    const status = document.getElementById('cuckoo-result-status');
+    const output = document.getElementById('cuckoo-result-output');
+    assert.strictEqual(section.classList.contains('cuckoo-hidden'), false);
+    assert.strictEqual(status.className, 'cuckoo-result-status error');
+    assert.ok(status.textContent.includes('失败'));
+    assert.strictEqual(output.textContent, 'x');
+  });
+
+  it('success：状态 class 为 success，输出更新', () => {
+    panel.displayResult('success', 'ok');
+    const status = document.getElementById('cuckoo-result-status');
+    const output = document.getElementById('cuckoo-result-output');
+    assert.strictEqual(status.className, 'cuckoo-result-status success');
+    assert.ok(status.textContent.includes('成功'));
+    assert.strictEqual(output.textContent, 'ok');
+  });
+});
