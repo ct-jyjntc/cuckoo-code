@@ -4,8 +4,8 @@
  * 类型契约见 ./api-types.ts（ElectronAPI）。
  */
 import { createRequire } from 'node:module';
-import type { ElectronAPI, McpServerConfig } from './api-types.js';
-import { KEYS } from '../overlay/storage.js';
+import type { ElectronAPI, McpServerConfig, Settings } from './api-types.js';
+import { getCachedSettings } from '../overlay/settings.js';
 
 const require = createRequire(import.meta.url);
 const { contextBridge, ipcRenderer } = require('electron');
@@ -32,15 +32,9 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke('execute-tool', { toolName, params, callId });
   },
   executeJs: (code: string, callId: string) => {
-    // 附件上传间隔（毫秒），随 JS 执行一并传给主进程的 attachFile 工具
-    let attachDelayMin, attachDelayMax;
-    try {
-      const mn = parseInt(localStorage.getItem(KEYS.attachDelayMin) as string, 10);
-      const mx = parseInt(localStorage.getItem(KEYS.attachDelayMax) as string, 10);
-      if (Number.isFinite(mn)) attachDelayMin = mn;
-      if (Number.isFinite(mx)) attachDelayMax = mx;
-    } catch (_) {}
-    return ipcRenderer.invoke('execute-js', { code, callId, attachDelayMin, attachDelayMax });
+    // 附件上传间隔（毫秒，来自主进程设置缓存），随 JS 执行一并传给主进程的 attachFile 工具
+    const s = getCachedSettings();
+    return ipcRenderer.invoke('execute-js', { code, callId, attachDelayMin: s.attachDelayMin, attachDelayMax: s.attachDelayMax });
   },
   sendEnterToChat: () => {
     return ipcRenderer.invoke('chat-send-enter');
@@ -119,6 +113,19 @@ const electronAPI: ElectronAPI = {
   },
   replaceProvider: (providerId: string) => {
     return ipcRenderer.invoke('replace-provider', { providerId });
+  },
+  // ========== 设置（主进程 settings.json）==========
+  getSettings: () => {
+    return ipcRenderer.invoke('settings-get');
+  },
+  saveSettings: (patch: Partial<Settings>) => {
+    return ipcRenderer.invoke('settings-set', { patch });
+  },
+  resetSettings: () => {
+    return ipcRenderer.invoke('settings-reset');
+  },
+  migrateSettings: (patch: Partial<Settings>) => {
+    return ipcRenderer.invoke('settings-migrate', { patch });
   },
 };
 

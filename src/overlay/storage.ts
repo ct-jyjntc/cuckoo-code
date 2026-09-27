@@ -1,7 +1,13 @@
 /**
  * localStorage 键名集中管理（T8）
- * overlay / bridge 渲染侧的所有 cuckoo-* 键在此定义，键名字符串保持不变
- *（不做数据迁移，避免丢用户设置）。
+ * overlay / bridge 渲染侧的所有 cuckoo-* 键在此定义，键名字符串保持不变。
+ *
+ * UI 改版 Task 1 之后，16 个设置键（retry 系列、watchdog 系列、xhr-idle-timeout、
+ * send-delay、attach-delay、auto-compact 系列）已不再作为数据源：设置存于主进程
+ * settings.json（见 app/settings-store.ts），渲染侧经 overlay/settings.ts 的内存缓存读取。
+ * 这些键名常量仍保留，仅用于两处：
+ *  1) overlay/settings.ts 检测并迁移页面 localStorage 中残留的旧版设置（迁移后删除）；
+ *  2) 把 xhrIdleTimeout 镜像回 localStorage 供主世界 hook 读取。
  * 注意：注入主世界的 hook（providers/hooks/deepseek.ts）无法 import 本模块，
  * 其内部的 'cuckoo-xhr-idle-timeout' / 'cuckoo-ds-headers' 字面量须与这里保持一致。
  */

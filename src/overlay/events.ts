@@ -18,7 +18,7 @@ import { getProviderByUrl } from '../providers/registry.js';
 import { initTokenCounter, setIsSubagentWindow } from './token-counter.js';
 import type { TokenCounter } from './token-counter.js';
 import { initAutoCompact } from './auto-compact.js';
-import { KEYS } from './storage.js';
+import { getCachedSettings } from './settings.js';
 
 // 回调注入（P4.2-A：overlay 不依赖 bridge）
 let hooks: { onInterceptedResponse?: (cb: (text: string, meta: any) => void) => void } = {};
@@ -57,14 +57,12 @@ async function handleManualParseDispatch() {
   showToast('已发送：继续', 2500);
 }
 
-/** 从 localStorage 恢复发送延迟配置并同步到输入框 */
+/** 从设置缓存恢复发送延迟配置并同步到输入框 */
 function restoreSendDelayConfig(): void {
   try {
-    const savedMin = localStorage.getItem(KEYS.sendDelayMin);
-    const savedMax = localStorage.getItem(KEYS.sendDelayMax);
-    // 注意：不能用 "parseInt() || 默认值"——0 是有效值，会被 || 误判为假值丢弃
-    if (savedMin !== null) { const v = parseInt(savedMin, 10); if (Number.isFinite(v) && v >= 0) state.sendDelayMin = v; }
-    if (savedMax !== null) { const v = parseInt(savedMax, 10); if (Number.isFinite(v) && v >= 0) state.sendDelayMax = v; }
+    const s = getCachedSettings();
+    if (Number.isFinite(s.sendDelayMin) && s.sendDelayMin >= 0) state.sendDelayMin = s.sendDelayMin;
+    if (Number.isFinite(s.sendDelayMax) && s.sendDelayMax >= 0) state.sendDelayMax = s.sendDelayMax;
     const minInput = document.getElementById('cuckoo-delay-min');
     const maxInput = document.getElementById('cuckoo-delay-max');
     if (minInput) (minInput as any).value = state.sendDelayMin;

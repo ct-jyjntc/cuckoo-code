@@ -1,9 +1,10 @@
 /**
  * 自动压缩上下文（T7 从 events.ts 拆出）
- * 负责：配置读写（localStorage）、设置区 UI 同步、收到回复后按阈值触发压缩。
+ * 负责：配置读写（主进程 settings.json，经 overlay/settings.ts 缓存）、
+ * 设置区 UI 同步、收到回复后按阈值触发压缩。
  * deps 显式注入（响应订阅、压缩触发、UI 提示），便于测试。
  */
-import { KEYS } from './storage.js';
+import { getCachedSettings, saveSettings } from './settings.js';
 
 // 配置：是否启用 + 阈值（单位：万 token）
 let autoCompactEnabled = false;
@@ -20,23 +21,21 @@ interface AutoCompactDeps {
   notify(message: string, durationMs?: number): void;
 }
 
-/** 从 localStorage 读取自动压缩配置并同步到 UI */
+/** 从设置缓存读取自动压缩配置并同步到 UI */
 function loadAutoCompactConfig(): void {
-  try {
-    const en = localStorage.getItem(KEYS.autoCompactEnabled);
-    const th = localStorage.getItem(KEYS.autoCompactThreshold);
-    autoCompactEnabled = en === '1';
-    // 同样避免 "parseFloat() || 80"（0 会被丢弃）
-    if (th !== null) { const v = parseFloat(th); if (Number.isFinite(v) && v > 0) autoCompactThresholdWan = v; }
-  } catch (_) {}
+  const s = getCachedSettings();
+  autoCompactEnabled = s.autoCompactEnabled;
+  if (Number.isFinite(s.autoCompactThreshold) && s.autoCompactThreshold > 0) {
+    autoCompactThresholdWan = s.autoCompactThreshold;
+  }
   const enEl = document.getElementById('cuckoo-auto-compact-enabled');
   const thEl = document.getElementById('cuckoo-auto-compact-threshold');
   if (enEl) (enEl as any).checked = autoCompactEnabled;
   if (thEl) (thEl as any).value = autoCompactThresholdWan;
 }
 
-/** 保存自动压缩配置 */
-function saveAutoCompactConfig(notify: AutoCompactDeps['notify']): void {
+/** 保存自动压缩配置（主进程设置；成功后缓存已由 overlay/settings.ts 刷新） */
+async function saveAutoCompactConfig(notify: AutoCompactDeps['notify']): Promise<void> {
   const enEl = document.getElementById('cuckoo-auto-compact-enabled');
   const thEl = document.getElementById('cuckoo-auto-compact-threshold');
   const enabled = !!(enEl && (enEl as any).checked);
@@ -45,12 +44,13 @@ function saveAutoCompactConfig(notify: AutoCompactDeps['notify']): void {
     notify('阈值需为正数（万）', 3000);
     return;
   }
+  const ok = await saveSettings({ autoCompactEnabled: enabled, autoCompactThreshold: th });
+  if (!ok) {
+    notify('设置保存失败', 3000);
+    return;
+  }
   autoCompactEnabled = enabled;
   autoCompactThresholdWan = th;
-  try {
-    localStorage.setItem(KEYS.autoCompactEnabled, enabled ? '1' : '0');
-    localStorage.setItem(KEYS.autoCompactThreshold, String(th));
-  } catch (_) {}
   notify('自动压缩设置已保存：' + (enabled ? '开启，阈值 ' + th + ' 万' : '关闭'), 2500);
 }
 
@@ -77,7 +77,7 @@ function checkAutoCompact(deps: AutoCompactDeps, server: any): void {
 function initAutoCompact(deps: AutoCompactDeps): void {
   loadAutoCompactConfig();
   const saveBtn = document.getElementById('cuckoo-auto-compact-save');
-  saveBtn?.addEventListener('click', () => saveAutoCompactConfig(deps.notify));
+  saveBtn?.addEventListener('click', () => { void saveAutoCompactConfig(deps.notify); });
   deps.onResponse?.((_text: string, meta: any) => {
     checkAutoCompact(deps, (meta && meta.tokenUsage) || null);
   });

@@ -3,14 +3,11 @@
  * 订阅 intercept-observer 的 cuckoo-ai-error 事件，按配置退避后发送提示词，
  * 触发 AI 重新回答。成功回复会重置计数。
  *
- * 配置来源：localStorage（每窗口独立），键名定义见 overlay/storage.ts 的 KEYS
- *  - cuckoo-retry-enabled        '1' | '0'  默认 '1'
- *  - cuckoo-retry-delay-min      毫秒，默认 4000
- *  - cuckoo-retry-delay-max      毫秒，默认 10000
- *  - cuckoo-retry-count          普通失败次数，默认 10；负数=无限
- *  - cuckoo-retry-429-delay      毫秒，默认 60000
- *  - cuckoo-retry-429-count      429 次数，默认 20；负数=无限
- *  - cuckoo-retry-prompt         提示词文案
+ * 配置来源：主进程设置（settings.json），经 overlay/settings.ts 的内存缓存同步读取
+ *（init 时拉取一次，saveSettings 后刷新缓存；timer 回调不触达 IPC）。
+ * 字段含义（默认值见 app/settings-store.ts 的 DEFAULT_SETTINGS）：
+ *  - retryEnabled / retryDelayMin / retryDelayMax / retryCount（负数=无限）
+ *  - retry429Delay / retry429Count（负数=无限）/ retryPrompt
  */
 import { sendToChat } from '../../overlay/chat-input.js';
 import { onAiError, onInterceptedResponse } from '../intercept/observer.js';
@@ -18,38 +15,21 @@ import { showToast } from '../../overlay/panel.js';
 import { showRetryCountdown, hideRetryCountdown } from '../../overlay/retry-countdown.js';
 import { withLog } from '../../infra/with-log.js';
 import { getProviderByUrl } from '../../providers/registry.js';
-import { KEYS } from '../../overlay/storage.js';
+import { getCachedSettings } from '../../overlay/settings.js';
 
 const DEFAULT_PROMPT = '刚才的回复似乎中断了，请重新完整回答上一个问题。';
-const DEFAULTS = {
-  enabled: true,
-  delayMin: 4000,
-  delayMax: 10000,
-  count: 10,
-  delay429: 60000,
-  count429: 20,
-  prompt: DEFAULT_PROMPT,
-};
 
 let readConfig = function readConfig(): any {
-  const cfg = Object.assign({}, DEFAULTS);
-  try {
-    const en = localStorage.getItem(KEYS.retryEnabled);
-    if (en !== null) cfg.enabled = en === '1';
-    const dmin = parseInt(localStorage.getItem(KEYS.retryDelayMin) || '', 10);
-    if (Number.isFinite(dmin)) cfg.delayMin = dmin;
-    const dmax = parseInt(localStorage.getItem(KEYS.retryDelayMax) || '', 10);
-    if (Number.isFinite(dmax)) cfg.delayMax = dmax;
-    const cnt = parseInt(localStorage.getItem(KEYS.retryCount) || '', 10);
-    if (Number.isFinite(cnt)) cfg.count = cnt;
-    const d429 = parseInt(localStorage.getItem(KEYS.retry429Delay) || '', 10);
-    if (Number.isFinite(d429)) cfg.delay429 = d429;
-    const c429 = parseInt(localStorage.getItem(KEYS.retry429Count) || '', 10);
-    if (Number.isFinite(c429)) cfg.count429 = c429;
-    const p = localStorage.getItem(KEYS.retryPrompt);
-    if (p) cfg.prompt = p;
-  } catch (e) { /* ignore */ }
-  return cfg;
+  const s = getCachedSettings();
+  return {
+    enabled: s.retryEnabled,
+    delayMin: s.retryDelayMin,
+    delayMax: s.retryDelayMax,
+    count: s.retryCount,
+    delay429: s.retry429Delay,
+    count429: s.retry429Count,
+    prompt: s.retryPrompt,
+  };
 };
 
 let pickDelay = function pickDelay(min: any, max: any): number {

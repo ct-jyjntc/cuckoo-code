@@ -57,26 +57,22 @@ test('removeKey 删除键且不抛错', () => {
   storage.removeKey(storage.KEYS.tokenDaily); // 幂等
 });
 
-test('settings 的 reset 清单从 KEYS 派生：恰好清空设置键，保留 fabPos/token/autoCompact', async () => {
+test('settings 的 reset 走主进程 settings.json，不再触碰任何 localStorage 键', async () => {
+  // 主进程桩：resetSettings 返回默认值
+  window.electronAPI = {
+    resetCalls: 0,
+    async resetSettings() {
+      window.electronAPI.resetCalls++;
+      const { DEFAULT_SETTINGS } = await import('../../src/app/settings-store.js');
+      return { success: true, settings: { ...DEFAULT_SETTINGS } };
+    },
+  };
   const { resetSettings } = await import('../../src/overlay/panels/settings.js');
-  // 所有 KEYS 都写入值
+  // 所有 KEYS 都写入值（含残留的旧版设置键）
   for (const v of Object.values(storage.KEYS)) localStorage.setItem(v, 'x');
-  resetSettings();
+  await resetSettings();
+  // 不再删除任何 localStorage 键（旧设置键的清理由 overlay/settings.ts 的迁移负责）
   const removed = Object.values(storage.KEYS).filter((v) => localStorage.getItem(v) === null);
-  const kept = Object.values(storage.KEYS).filter((v) => localStorage.getItem(v) !== null);
-  // 清空集合必须恰好是这 14 个设置键（全部来自 KEYS，无手工字面量）
-  const expectedRemoved = [
-    storage.KEYS.retryEnabled, storage.KEYS.retryDelayMin, storage.KEYS.retryDelayMax,
-    storage.KEYS.retryCount, storage.KEYS.retry429Delay, storage.KEYS.retry429Count,
-    storage.KEYS.retryPrompt, storage.KEYS.xhrIdleTimeout, storage.KEYS.watchdogPrompt,
-    storage.KEYS.watchdogCount, storage.KEYS.sendDelayMin, storage.KEYS.sendDelayMax,
-    storage.KEYS.attachDelayMin, storage.KEYS.attachDelayMax,
-  ];
-  assert.deepStrictEqual([...removed].sort(), [...expectedRemoved].sort());
-  // 无关键（fab 位置、token 统计、自动压缩配置）不受影响
-  assert.deepStrictEqual([...kept].sort(), [
-    storage.KEYS.fabPos, storage.KEYS.tokenCache, storage.KEYS.tokenDaily,
-    storage.KEYS.tokenDailyVersion, storage.KEYS.autoCompactEnabled,
-    storage.KEYS.autoCompactThreshold,
-  ].sort());
+  assert.deepStrictEqual(removed, []);
+  assert.strictEqual(window.electronAPI.resetCalls, 1);
 });

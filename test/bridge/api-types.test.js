@@ -57,6 +57,6 @@ test('运行时暴露的 window.electronAPI 方法与接口声明一致', async 
   }
 });
 
-test('接口声明恰好 30 个方法（防漏防多）', () => {
-  assert.strictEqual(declaredMethodNames(typesSrc).length, 30);
+test('接口声明恰好 34 个方法（防漏防多）', () => {
+  assert.strictEqual(declaredMethodNames(typesSrc).length, 34);
 });

@@ -113,6 +113,42 @@ export type RefreshSkillsResult =
   | { success: true; section: string; skillCount: number; agentCount: number }
   | { success: false; error: string };
 
+/**
+ * overlay 设置（主进程 userData/settings.json 持久化，键名与字段一一对应）
+ * 延迟类字段单位均为毫秒；autoCompactThreshold 单位为万 token。
+ */
+export interface Settings {
+  /** 失败自动重试开关 */
+  retryEnabled: boolean;
+  /** 普通失败重试间隔（毫秒） */
+  retryDelayMin: number;
+  retryDelayMax: number;
+  /** 普通失败重试次数（负数 = 无限） */
+  retryCount: number;
+  /** 操作频繁（429）重试间隔（毫秒） */
+  retry429Delay: number;
+  /** 操作频繁（429）重试次数（负数 = 无限） */
+  retry429Count: number;
+  /** 重试提示词 */
+  retryPrompt: string;
+  /** SSE 流静默阈值（毫秒，<=0 禁用；主世界 hook 经 localStorage 镜像读取） */
+  xhrIdleTimeout: number;
+  /** 看门狗催继续提示词 */
+  watchdogPrompt: string;
+  /** 看门狗最大催次数（负数 = 无限） */
+  watchdogCount: number;
+  /** 发送延迟（毫秒） */
+  sendDelayMin: number;
+  sendDelayMax: number;
+  /** 附件上传间隔（毫秒） */
+  attachDelayMin: number;
+  attachDelayMax: number;
+  /** 自动压缩开关 */
+  autoCompactEnabled: boolean;
+  /** 自动压缩阈值（万 token） */
+  autoCompactThreshold: number;
+}
+
 export interface ElectronAPI {
   executeCommand(command: string, id: string): Promise<ExecuteCommandResult>;
   initProject(projectDir?: string | null, isCompaction?: boolean, extraPrompt?: string, noDialog?: boolean): Promise<InitProjectResult>;
@@ -144,6 +180,12 @@ export interface ElectronAPI {
   importProvider(): Promise<ImportProviderResult>;
   removeProvider(filePath: string, providerId: string): Promise<{ success: boolean; error?: string }>;
   replaceProvider(providerId: string): Promise<ImportProviderResult>;
+  // ========== 设置（主进程 settings.json）==========
+  getSettings(): Promise<Settings>;
+  saveSettings(patch: Partial<Settings>): Promise<{ success: true; settings: Settings }>;
+  resetSettings(): Promise<{ success: true; settings: Settings }>;
+  /** 旧版 localStorage 设置迁入（主进程只应用一次，applied 表示是否实际写入） */
+  migrateSettings(patch: Partial<Settings>): Promise<{ success: true; applied: boolean }>;
 }
 
 declare global {

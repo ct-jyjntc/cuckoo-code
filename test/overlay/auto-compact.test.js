@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 'use strict';
 /**
- * auto-compact 测试：配置读写（localStorage 键保持现值）、UI 同步、阈值触发。
- * localStorage / document 由 happy-dom 提供，每个用例前清空并重建 DOM。
+ * auto-compact 测试：配置读写（主进程 settings.json，经 overlay/settings.ts 缓存）、
+ * UI 同步、阈值触发。localStorage / document 由 happy-dom 提供；
+ * window.electronAPI 用内存桩模拟主进程（save 返回合并后的完整设置）。
  */
 import { test, beforeEach, afterEach, vi } from 'vitest';
 import assert from 'node:assert';
@@ -15,7 +16,9 @@ const HTML = `
 `;
 
 let autoCompact;
+let settingsMod;
 let dom;
+let api;
 
 function makeDeps(overrides = {}) {
   const deps = {
@@ -35,10 +38,24 @@ function setForm(enabled, threshold) {
   document.getElementById('cuckoo-auto-compact-threshold').value = String(threshold);
 }
 
+/** 等待 saveAutoCompactConfig 内的 await saveSettings 链完成 */
+function flush() {
+  return new Promise((r) => setTimeout(r, 0));
+}
+
 beforeEach(async () => {
   vi.resetModules();
   localStorage.clear();
   dom = setupDom(HTML);
+  api = {
+    saveCalls: [],
+    async saveSettings(patch) {
+      api.saveCalls.push(patch);
+      return { success: true, settings: { ...patch } };
+    },
+  };
+  window.electronAPI = api;
+  settingsMod = await import('../../src/overlay/settings.js');
   autoCompact = await import('../../src/overlay/auto-compact.js');
 });
 
@@ -52,33 +69,50 @@ test('默认配置：关闭 + 阈值 80 万，同步到 UI', () => {
   assert.strictEqual(Number(document.getElementById('cuckoo-auto-compact-threshold').value), 80);
 });
 
-test('从 localStorage 加载已有配置到 UI', () => {
-  localStorage.setItem('cuckoo-auto-compact-enabled', '1');
-  localStorage.setItem('cuckoo-auto-compact-threshold', '50');
+test('从设置缓存加载已有配置到 UI', () => {
+  settingsMod.__setCacheForTest({ autoCompactEnabled: true, autoCompactThreshold: 50 });
   autoCompact.initAutoCompact(makeDeps());
   assert.strictEqual(document.getElementById('cuckoo-auto-compact-enabled').checked, true);
   assert.strictEqual(Number(document.getElementById('cuckoo-auto-compact-threshold').value), 50);
 });
 
-test('保存按钮写入 localStorage 并提示', () => {
+test('保存按钮写入主进程设置并提示', async () => {
   const deps = makeDeps();
   autoCompact.initAutoCompact(deps);
   setForm(true, 30);
   document.getElementById('cuckoo-auto-compact-save').click();
-  assert.strictEqual(localStorage.getItem('cuckoo-auto-compact-enabled'), '1');
-  assert.strictEqual(localStorage.getItem('cuckoo-auto-compact-threshold'), '30');
+  await flush();
+  assert.strictEqual(api.saveCalls.length, 1);
+  assert.deepStrictEqual(api.saveCalls[0], { autoCompactEnabled: true, autoCompactThreshold: 30 });
+  // 缓存已刷新
+  assert.strictEqual(settingsMod.getCachedSettings().autoCompactEnabled, true);
+  assert.strictEqual(settingsMod.getCachedSettings().autoCompactThreshold, 30);
   assert.strictEqual(deps.notifications.length, 1);
   assert.strictEqual(deps.notifications[0][0].includes('30'), true);
 });
 
-test('非法阈值：提示错误且不写入 localStorage', () => {
+test('非法阈值：提示错误且不写入主进程设置', async () => {
   const deps = makeDeps();
   autoCompact.initAutoCompact(deps);
   setForm(true, -5);
   document.getElementById('cuckoo-auto-compact-save').click();
-  assert.strictEqual(localStorage.getItem('cuckoo-auto-compact-enabled') === null, true);
+  await flush();
+  assert.strictEqual(api.saveCalls.length, 0);
   assert.strictEqual(deps.notifications.length, 1);
   assert.strictEqual(deps.notifications[0][0].includes('正数'), true);
+});
+
+test('主进程保存失败：提示失败且不更新配置', async () => {
+  const deps = makeDeps();
+  api.saveSettings = async () => { throw new Error('ipc down'); };
+  autoCompact.initAutoCompact(deps);
+  setForm(true, 30);
+  document.getElementById('cuckoo-auto-compact-save').click();
+  await flush();
+  assert.strictEqual(deps.notifications.length, 1);
+  assert.strictEqual(deps.notifications[0][0].includes('失败'), true);
+  deps.responseCb('', { tokenUsage: { accumulatedTokens: 9999999 } });
+  assert.strictEqual(deps.compactCalls.length, 0);
 });
 
 test('未开启时不触发压缩', () => {
@@ -88,11 +122,12 @@ test('未开启时不触发压缩', () => {
   assert.strictEqual(deps.compactCalls.length, 0);
 });
 
-test('低于阈值不触发，达到阈值触发', () => {
+test('低于阈值不触发，达到阈值触发', async () => {
   const deps = makeDeps();
   autoCompact.initAutoCompact(deps);
   setForm(true, 80);
   document.getElementById('cuckoo-auto-compact-save').click();
+  await flush();
 
   deps.responseCb('', { tokenUsage: { accumulatedTokens: 799999 } });
   assert.strictEqual(deps.compactCalls.length, 0);
@@ -108,6 +143,7 @@ test('压缩进行中不重复触发，完成后可再次触发', async () => {
   autoCompact.initAutoCompact(deps);
   setForm(true, 80);
   document.getElementById('cuckoo-auto-compact-save').click();
+  await flush();
 
   deps.responseCb('', { tokenUsage: { accumulatedTokens: 900000 } });
   deps.responseCb('', { tokenUsage: { accumulatedTokens: 950000 } });
@@ -119,11 +155,12 @@ test('压缩进行中不重复触发，完成后可再次触发', async () => {
   assert.strictEqual(deps.compactCalls.length, 2); // 完成后允许再次触发
 });
 
-test('响应缺少 tokenUsage 时不触发也不报错', () => {
+test('响应缺少 tokenUsage 时不触发也不报错', async () => {
   const deps = makeDeps();
   autoCompact.initAutoCompact(deps);
   setForm(true, 80);
   document.getElementById('cuckoo-auto-compact-save').click();
+  await flush();
   deps.responseCb('', null);
   deps.responseCb('', {});
   assert.strictEqual(deps.compactCalls.length, 0);

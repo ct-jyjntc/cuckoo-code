@@ -19,6 +19,7 @@ import { startInterceptObserver, onInterceptedResponse } from './intercept/obser
 import { startRetryEngine } from './loop/retry.js';
 import { startSessionWatcher, startWatchdog, checkSessionChange } from './loop/watchdog.js';
 import { initSubagentIfNeeded } from './subagent.js';
+import { initSettings } from '../overlay/settings.js';
 
 const require = createRequire(import.meta.url);
 const { webFrame, ipcRenderer } = require('electron');
@@ -88,7 +89,7 @@ function handleUrlChanged(): void {
  * 初始化 Cuckoo Code 扩展
  * 注入样式、覆盖层 HTML，绑定事件，启动回复监听（拦截或 DOM 观察）
  */
-function init(): void {
+async function init(): Promise<void> {
   // 子代理窗口：注册完成判定（onInterceptedResponse 计数），但 overlay 照常初始化
   const subCfg = initSubagentIfNeeded();
   if (subCfg) {
@@ -98,6 +99,8 @@ function init(): void {
     try { setIsSubagentWindow(true); } catch (_) { /* ignore */ }
   }
   try {
+    // 设置先于一切读取方：迁移旧 localStorage 数据 → 拉取主进程设置到缓存 → 镜像 hook 键
+    await initSettings();
     ui.injectCSS();
     ui.injectOverlay();
     projectDir.initProjectDirSection();
@@ -143,7 +146,7 @@ function init(): void {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => { void init(); });
 } else {
-  init();
+  void init();
 }
