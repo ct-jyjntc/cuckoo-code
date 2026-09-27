@@ -51,6 +51,14 @@ const shellAPI = {
   // 壳页面 → 主进程 → AI 页面 view → bridge preload 的 sendToChat
   sendToChat: (msg: string, tag?: string, delayMs?: number) =>
     ipcRenderer.invoke('shell-send-to-chat', { msg, tag, delayMs }),
+  // ===== 任务面板（工具活动历史存主进程内存，按窗口隔离）=====
+  // 打开面板时拉全量（增量转发发生在面板打开前的部分靠这个补全）
+  getToolHistory: () => ipcRenderer.invoke('shell-get-tool-history'),
+  clearToolHistory: () => ipcRenderer.invoke('shell-clear-tool-history'),
+  // AI 页面 executor 上报的增量条目（同 id 从 running 更新为 done）
+  onToolActivity: (cb: (entry: any) => void) => {
+    ipcRenderer.on('shell-tool-activity', (_e: any, entry: any) => cb(entry));
+  },
   // ===== 项目面板 =====
   // init-project / updateProjectDir 的 handler 用 event.sender 反查窗口，shell webContents 可被命中
   initProject: () => ipcRenderer.invoke('init-project', {}),

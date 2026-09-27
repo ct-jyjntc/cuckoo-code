@@ -2,6 +2,8 @@
  * 窗口管理（多窗口 + 每窗口 profile 上下文）
  * 每个窗口关联一个 profileId，拥有独立的 sessionStore 实例。
  */
+import { removeWindowHistory } from './tool-activity.js';
+
 interface WindowContext {
   win: any;
   /** AI 网页所在的 WebContentsView（壳窗口的 win.webContents 是地址栏壳页面） */
@@ -23,6 +25,7 @@ function addWindow(win: any, profileId: any, providerId: any, sessionStore: any,
   lastActiveWindowId = win.id;
   win.on('closed', () => {
     windows.delete(win.id);
+    removeWindowHistory(win.id);
     if (lastActiveWindowId === win.id) {
       const remaining = Array.from(windows.keys());
       lastActiveWindowId = remaining.length > 0 ? remaining[remaining.length - 1] : null;

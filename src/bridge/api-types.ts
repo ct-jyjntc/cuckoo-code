@@ -114,6 +114,20 @@ export type RefreshSkillsResult =
   | { success: false; error: string };
 
 /**
+ * 工具活动条目（任务面板）：executor 按 detected→running→done 上报，同 id 更新。
+ * running 时 output 为空；历史存主进程内存（上限 50，窗口关闭即丢）。
+ */
+export interface ToolActivityEntry {
+  id: string;
+  command: string;
+  success: boolean;
+  canceled: boolean;
+  output: string;
+  timestamp: number;
+  status: 'running' | 'done';
+}
+
+/**
  * overlay 设置（主进程 userData/settings.json 持久化，键名与字段一一对应）
  * 延迟类字段单位均为毫秒；autoCompactThreshold 单位为万 token。
  */
@@ -167,6 +181,8 @@ export interface ElectronAPI {
   updateWindowName(displayName: string): Promise<{ success: boolean; name?: string | null; error?: string }>;
   showAiNotification(): Promise<{ success: boolean; skipped?: boolean; reason?: string; error?: string }>;
   updateTokenUsage(context: number, cumulative: number, windowCumulative: number, todayCumulative: number): Promise<{ success: true }>;
+  /** 上报工具活动到任务面板（同 id 从 running 更新为 done） */
+  reportToolActivity(entry: ToolActivityEntry): Promise<{ success: boolean }>;
   refreshSkills(): Promise<RefreshSkillsResult>;
   listMcpServers(opts?: { scope?: 'user' }): Promise<{ success: true; servers: McpServerInfo[] }>;
   upsertMcpServer(server: McpServerConfig): Promise<{ success: boolean; error?: string }>;

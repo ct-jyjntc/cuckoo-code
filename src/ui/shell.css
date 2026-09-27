@@ -216,6 +216,65 @@ html, body {
 .mcp-notify[hidden] { display: none; }
 .mcp-notify-text { flex: 1; min-width: 0; }
 
+/* ===== 任务面板（工具活动：当前命令 + 历史，点击条目展开详情） ===== */
+.task-current {
+  flex-shrink: 0;
+  padding: 10px;
+  border-bottom: 1px solid var(--ck-border);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.task-current[hidden] { display: none; }
+.task-current-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--ck-text);
+}
+.task-current-status.success { color: #3d9e63; }
+.task-current-status.error { color: #d5463c; }
+.task-current-status.canceled { color: var(--ck-text-dim); }
+.task-current-command {
+  font-size: 12px; color: var(--ck-text);
+  word-break: break-all; white-space: pre-wrap;
+}
+.task-output {
+  margin: 0; padding: 8px;
+  max-height: 160px; overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-all;
+  background: var(--ck-bg); color: var(--ck-text);
+  border: 1px solid var(--ck-border); border-radius: 8px;
+}
+.task-output[hidden] { display: none; }
+/* 执行中 spinner */
+.task-spinner {
+  width: 10px; height: 10px; flex-shrink: 0;
+  border: 2px solid var(--ck-border); border-top-color: var(--ck-primary);
+  border-radius: 50%;
+  animation: task-spin 0.8s linear infinite;
+}
+@keyframes task-spin { to { transform: rotate(360deg); } }
+.task-item { flex-direction: column; align-items: stretch; gap: 4px; }
+.task-item-head { display: flex; align-items: center; gap: 6px; }
+.task-item-command {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.task-item-status { flex-shrink: 0; font-size: 11px; }
+.task-item-status.running { color: var(--ck-primary); }
+.task-item-status.success { color: #3d9e63; }
+.task-item-status.error { color: #d5463c; }
+.task-item-status.canceled { color: var(--ck-text-dim); }
+.task-item-time { flex-shrink: 0; font-size: 11px; color: var(--ck-text-dim); }
+.task-item-detail {
+  display: flex; flex-direction: column; gap: 4px;
+  padding-top: 4px; border-top: 1px dashed var(--ck-border);
+}
+.task-item-detail[hidden] { display: none; }
+.task-detail-command {
+  font-size: 12px; color: var(--ck-text);
+  word-break: break-all; white-space: pre-wrap;
+}
+
 /* ===== 设置面板（行式布局：标签左/上、控件右/下，圆角输入框） ===== */
 .settings-form {
   flex: 1; min-height: 0; overflow-y: auto;

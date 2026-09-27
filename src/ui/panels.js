@@ -902,6 +902,149 @@ export function initPanels(api, doc) {
     }
   }
 
+  // ===== 任务面板（工具活动：当前命令/状态/结果 + 历史；历史存主进程内存，按窗口隔离） =====
+  // 数据流：executor → reportToolActivity → 主进程存历史 + 转发 shell-tool-activity → 本面板。
+  // 面板未打开时只更新数据，不强制展开；打开时经 getToolHistory 拉一次全量补齐。
+
+  const taskList = doc.getElementById('shell-task-list');
+  const taskCurrent = doc.getElementById('shell-task-current');
+  const taskCurrentStatus = doc.getElementById('shell-task-current-status');
+  const taskCurrentCommand = doc.getElementById('shell-task-current-command');
+  const taskCurrentOutput = doc.getElementById('shell-task-current-output');
+
+  /** 与主进程历史保持一致（新→旧，上限 50） */
+  let taskEntries = [];
+
+  function truncateText(text, maxLen) {
+    const s = text === undefined || text === null ? '' : String(text);
+    return s.length > maxLen ? s.substring(0, maxLen) + '...' : s;
+  }
+
+  function formatTaskTime(ts) {
+    const d = new Date(typeof ts === 'number' ? ts : Date.now());
+    const pad = function (n) { return String(n).padStart(2, '0'); };
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+
+  function taskStatusInfo(entry) {
+    if (entry.status === 'running') return { text: '执行中', cls: 'running' };
+    if (entry.canceled) return { text: '⏹ 已忽略', cls: 'canceled' };
+    return entry.success ? { text: '✅ 成功', cls: 'success' } : { text: '❌ 失败', cls: 'error' };
+  }
+
+  /** 当前命令区：最新一条（执行中带 spinner，完成后展示输出） */
+  function renderTaskCurrent() {
+    if (!taskCurrent) return;
+    const entry = taskEntries[0];
+    if (!entry) {
+      taskCurrent.hidden = true;
+      return;
+    }
+    taskCurrent.hidden = false;
+    const info = taskStatusInfo(entry);
+    if (taskCurrentStatus) {
+      taskCurrentStatus.textContent = '';
+      taskCurrentStatus.className = 'task-current-status ' + info.cls;
+      if (entry.status === 'running') {
+        taskCurrentStatus.appendChild(el(doc, 'span', 'task-spinner'));
+      }
+      taskCurrentStatus.appendChild(doc.createTextNode(info.text));
+    }
+    if (taskCurrentCommand) taskCurrentCommand.textContent = entry.command;
+    if (taskCurrentOutput) {
+      const show = entry.status !== 'running';
+      taskCurrentOutput.hidden = !show;
+      if (show) taskCurrentOutput.textContent = entry.output || '(无输出)';
+    }
+  }
+
+  /** 历史条目：头部一行（命令/状态/时间）+ 可展开详情（完整命令 + 输出） */
+  function renderTaskItem(entry) {
+    const info = taskStatusInfo(entry);
+    const item = el(doc, 'div', 'panel-item task-item');
+    item.dataset.taskId = String(entry.id);
+
+    const head = el(doc, 'div', 'task-item-head');
+    head.appendChild(el(doc, 'span', 'task-item-command', truncateText(entry.command, 60)));
+    head.appendChild(el(doc, 'span', 'task-item-status ' + info.cls, info.text));
+    head.appendChild(el(doc, 'span', 'task-item-time', formatTaskTime(entry.timestamp)));
+    item.appendChild(head);
+
+    const detail = el(doc, 'div', 'task-item-detail');
+    detail.hidden = true;
+    detail.appendChild(el(doc, 'div', 'task-detail-command', entry.command));
+    const outText = entry.status === 'running' ? '执行中...' : (entry.output || '(无输出)');
+    detail.appendChild(el(doc, 'pre', 'task-output', outText));
+    item.appendChild(detail);
+    return item;
+  }
+
+  function renderTaskList() {
+    renderTaskCurrent();
+    if (!taskList) return;
+    taskList.textContent = '';
+    // 最新一条在「当前命令」区展示，历史列表从第二条开始
+    const rest = taskEntries.slice(1);
+    if (rest.length === 0) {
+      if (taskEntries.length === 0) {
+        taskList.appendChild(el(doc, 'div', 'panel-empty', '暂无记录'));
+      }
+      return;
+    }
+    for (const entry of rest) taskList.appendChild(renderTaskItem(entry));
+  }
+
+  /** 增量条目：同 id 覆盖（running → done），新条目插最前 */
+  function applyToolActivity(entry) {
+    if (!entry || !entry.id) return;
+    const idx = taskEntries.findIndex(function (x) { return x.id === entry.id; });
+    if (idx >= 0) taskEntries[idx] = entry;
+    else taskEntries.unshift(entry);
+    if (taskEntries.length > 50) taskEntries.length = 50;
+    renderTaskList();
+  }
+
+  if (api.onToolActivity) {
+    api.onToolActivity(function (entry) { applyToolActivity(entry); });
+  }
+
+  // 点击历史条目：面板内展开/收起该条详情
+  if (taskList) {
+    taskList.addEventListener('click', function (e) {
+      const item = e.target.closest('.task-item');
+      if (!item || !taskList.contains(item)) return;
+      const detail = item.querySelector('.task-item-detail');
+      if (detail) detail.hidden = !detail.hidden;
+    });
+  }
+
+  /** 打开面板时拉一次全量（增量转发发生在面板打开前的部分靠这个补齐） */
+  async function loadToolHistory() {
+    if (!api.getToolHistory) return;
+    try {
+      const res = await api.getToolHistory();
+      if (res && res.success && Array.isArray(res.entries)) {
+        taskEntries = res.entries;
+        renderTaskList();
+      }
+    } catch (err) {
+      console.error('[Cuckoo Shell] 获取工具活动历史失败:', err);
+    }
+  }
+
+  const btnClearTasks = doc.getElementById('shell-btn-clear-tasks');
+  if (btnClearTasks) {
+    btnClearTasks.addEventListener('click', async function () {
+      try {
+        if (api.clearToolHistory) await api.clearToolHistory();
+      } catch (err) {
+        console.error('[Cuckoo Shell] 清空工具活动历史失败:', err);
+      }
+      taskEntries = [];
+      renderTaskList();
+    });
+  }
+
   // ===== 面板切换：显隐内容容器，按需渲染 =====
   function handlePanelChange(panelId) {
     const contents = doc.querySelectorAll('.panel-content');
@@ -921,6 +1064,7 @@ export function initPanels(api, doc) {
       renderMcpList();
       loadMcpConfigToJson();
     }
+    if (panelId === 'task') loadToolHistory();
   }
 
   return {
@@ -931,5 +1075,6 @@ export function initPanels(api, doc) {
     loadMcpConfigToJson: loadMcpConfigToJson,
     loadSettingsForm: loadSettingsForm,
     revealUsage: revealUsage,
+    renderTaskList: renderTaskList,
   };
 }

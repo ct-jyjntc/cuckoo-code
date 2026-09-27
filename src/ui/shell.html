@@ -106,7 +106,18 @@
                 </div>
               </div>
             </div>
-            <div class="panel-content" data-panel-content="task" hidden></div>
+            <!-- 任务面板：当前命令 + 状态 + 结果输出 + 历史列表（点击条目展开详情） -->
+            <div class="panel-content" data-panel-content="task" hidden>
+              <div class="panel-toolbar">
+                <button class="panel-btn" id="shell-btn-clear-tasks" title="清空历史记录">清空</button>
+              </div>
+              <div class="task-current" id="shell-task-current" hidden>
+                <div class="task-current-status" id="shell-task-current-status"></div>
+                <div class="task-current-command" id="shell-task-current-command"></div>
+                <pre class="task-output" id="shell-task-current-output" hidden></pre>
+              </div>
+              <div class="panel-list" id="shell-task-list"></div>
+            </div>
             <!-- 设置面板：行式布局（标签左/上、控件右/下），读写走 settings IPC -->
             <div class="panel-content" data-panel-content="settings" hidden>
               <div class="settings-form">

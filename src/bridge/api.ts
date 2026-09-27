@@ -4,7 +4,7 @@
  * 类型契约见 ./api-types.ts（ElectronAPI）。
  */
 import { createRequire } from 'node:module';
-import type { ElectronAPI, McpServerConfig, Settings } from './api-types.js';
+import type { ElectronAPI, McpServerConfig, Settings, ToolActivityEntry } from './api-types.js';
 import { getCachedSettings } from '../overlay/settings.js';
 
 const require = createRequire(import.meta.url);
@@ -71,6 +71,10 @@ const electronAPI: ElectronAPI = {
   },
   updateTokenUsage: (context: number, cumulative: number, windowCumulative: number, todayCumulative: number) => {
     return ipcRenderer.invoke('update-token-usage', { context, cumulative, windowCumulative, todayCumulative });
+  },
+  // 任务面板：上报工具活动（执行中/完成两阶段，同 id 更新）
+  reportToolActivity: (entry: ToolActivityEntry) => {
+    return ipcRenderer.invoke('report-tool-activity', { entry });
   },
   // ========== 技能相关 API ==========
   refreshSkills: () => {
