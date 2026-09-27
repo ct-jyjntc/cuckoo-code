@@ -9,6 +9,10 @@ interface WindowContext {
   profileId: any;
   providerId: any;
   sessionStore: any;
+  /** 当前展开的侧面板 id（null = 收起），由 shell-panel-state IPC 维护 */
+  panelId?: string | null;
+  /** 面板开关变化后重算 view bounds（由 entry.ts 注入） */
+  relayout?: () => void;
 }
 
 const windows = new Map<number, WindowContext>(); // windowId -> { win, profileId, providerId, sessionStore }

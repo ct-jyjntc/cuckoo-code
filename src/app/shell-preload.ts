@@ -13,6 +13,7 @@ const shellAPI = {
   forward: () => ipcRenderer.invoke('shell-forward'),
   reload: () => ipcRenderer.invoke('shell-reload'),
   home: () => ipcRenderer.invoke('shell-home'),
+  setPanelOpen: (panelId: string | null) => ipcRenderer.invoke('shell-panel-state', { panelId }),
   onUrlUpdated: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-url-updated', (_e: any, data: any) => cb(data));
   },

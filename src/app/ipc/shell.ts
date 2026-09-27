@@ -130,6 +130,15 @@ function registerShellIpc(): void {
       return { success: false, error: err.message };
     }
   });
+
+  // 壳页面图标栏点击：记录该窗口的面板开关状态并重算 view bounds
+  ipcMain.handle('shell-panel-state', async (event: any, { panelId }: any = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx) return { success: false, error: '窗口上下文不存在' };
+    ctx.panelId = typeof panelId === 'string' && panelId ? panelId : null;
+    try { if (ctx.relayout) ctx.relayout(); } catch (_) {}
+    return { success: true, panelId: ctx.panelId };
+  });
 }
 
 export { registerShellIpc, pushUrlState, pushTokenUsage };

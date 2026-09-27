@@ -7,50 +7,75 @@
 </head>
 <body>
   <div class="shell">
-    <div class="toolbar">
-      <button class="nav-btn disabled" id="btn-back" title="后退">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-      </button>
-      <button class="nav-btn disabled" id="btn-forward" title="前进">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-      </button>
-      <button class="nav-btn" id="btn-reload" title="刷新">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-      </button>
-      <div class="url-wrap">
-        <svg class="lock" id="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-        <input class="url-input" id="url-input" placeholder="输入网址后回车" spellcheck="false" autocomplete="off"/>
+    <aside class="rail">
+      <nav class="rail-main">
+        <button class="rail-btn" data-panel="home" title="平台主页">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        </button>
+        <button class="rail-btn" data-panel="chat" title="会话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="rail-btn" data-panel="window" title="窗口">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M6.5 6.5h.01M9.5 6.5h.01"/></svg>
+        </button>
+        <button class="rail-btn" data-panel="mcp" title="MCP">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7V3"/><path d="M15 7V3"/><path d="M7 7h10v4a5 5 0 0 1-10 0V7z"/><path d="M12 16v5"/></svg>
+        </button>
+        <button class="rail-btn" data-panel="task" title="任务">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a3 3 0 0 1 6 0"/><path d="M9 12l2 2 4-4"/></svg>
+        </button>
+      </nav>
+      <div class="rail-bottom">
+        <button class="rail-btn" data-panel="settings" title="设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="rail-btn" data-panel="project" title="项目">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
       </div>
-      <div class="divider"></div>
-      <button class="nav-btn" id="btn-home" title="主页">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-      </button>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <button class="nav-btn disabled" id="btn-back" title="后退">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="nav-btn disabled" id="btn-forward" title="前进">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <button class="nav-btn" id="btn-reload" title="刷新">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <div class="url-wrap">
+          <svg class="lock" id="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <input class="url-input" id="url-input" placeholder="输入网址后回车" spellcheck="false" autocomplete="off"/>
+        </div>
+        <button class="nav-btn" id="btn-home" title="主页">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        </button>
+        <div class="divider"></div>
+        <!-- TODO(ui-redesign): 徽章点击后跳转「项目」面板的 token 明细，后续任务实现 -->
+        <button class="token-badge" id="token-badge" title="对话上下文：本会话当前占用的 token 总量">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span class="token-value" id="token-value">0</span>
+        </button>
+      </header>
+      <div class="body">
+        <aside class="panel" id="side-panel" hidden>
+          <div class="panel-header">
+            <span class="panel-title" id="panel-title"></span>
+            <button class="panel-close" id="panel-close" title="收起面板">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="panel-body"><!-- 面板内容由后续任务填充 --></div>
+        </aside>
+        <div class="viewport"></div>
+      </div>
     </div>
-    <div class="statusbar">
-      <div class="sb-item" title="对话上下文：本会话当前占用的 token 总量">
-        <span class="sb-icon">💬</span>
-        <span class="sb-value" id="sb-context">0</span>
-      </div>
-      <div class="sb-item" title="对话累计：本会话累计消耗的 token">
-        <span class="sb-icon">📈</span>
-        <span class="sb-value" id="sb-cumulative">0</span>
-      </div>
-      <div class="sb-sep"></div>
-      <div class="sb-item" title="今日窗口：本窗口今天的累计消耗">
-        <span class="sb-icon">📅</span>
-        <span class="sb-value" id="sb-today">0</span>
-      </div>
-      <div class="sb-item" title="窗口累计：本窗口所有会话累计之和">
-        <span class="sb-icon">🪟</span>
-        <span class="sb-value" id="sb-window">0</span>
-      </div>
-      <div class="sb-item" title="系统总累计：所有窗口累计之和（含已关闭窗口）">
-        <span class="sb-icon">🌐</span>
-        <span class="sb-value" id="sb-system">0</span>
-      </div>
-    </div>
-    <div class="viewport"></div>
   </div>
-<script src="./shell.js"></script>
+<script type="module">
+  import { initShell } from './shell.js';
+  initShell(window.shellAPI || {}, document);
+</script>
 </body>
 </html>

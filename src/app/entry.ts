@@ -13,6 +13,7 @@ import * as updater from '../updater/index.js';
 import * as mcpConfig from '../mcp/config.js';
 import * as mcpClient from '../mcp/client.js';
 import { resolveAsset, resolveSrc } from '../infra/paths.js';
+import { computeViewBounds, SHELL_LAYOUT } from './layout.js';
 
 const require = createRequire(import.meta.url);
 const { app, BrowserWindow, WebContentsView, Menu, dialog, ipcMain: ipcMainForProfile } = require('electron');
@@ -125,12 +126,14 @@ function createWindow(profile: any) {
   });
   mainWindow.contentView.addChildView(view);
 
-  // 布局：AI 页面占地址栏下方区域，随窗口尺寸变化
-  const TOOLBAR_HEIGHT = 44 + 26; // 地址栏 44 + 状态条 26
+  // 布局：左图标栏 52 + 面板 280×开关 + 圆角卡片边距 10（见 src/app/layout.ts）
+  view.setBorderRadius(SHELL_LAYOUT.CARD_RADIUS);
   const layoutView = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const [w, h] = mainWindow.getContentSize();
-    view.setBounds({ x: 0, y: TOOLBAR_HEIGHT, width: w, height: Math.max(0, h - TOOLBAR_HEIGHT) });
+    const ctx = windowState.getWindowContext(mainWindow.id);
+    const panelOpen = !!(ctx && ctx.panelId);
+    view.setBounds(computeViewBounds(w, h, panelOpen));
   };
   layoutView();
   mainWindow.on('resize', layoutView);
@@ -146,6 +149,12 @@ function createWindow(profile: any) {
 
   // 注册窗口上下文（记录 providerId，未确定时为空字符串）
   windowState.addWindow(mainWindow, profileData.id, profileData.providerId || '', sessionStore, view);
+  // 面板开关变化时由 shell-panel-state IPC 触发重排
+  const selfCtx = windowState.getWindowContext(mainWindow.id);
+  if (selfCtx) {
+    selfCtx.panelId = null;
+    selfCtx.relayout = layoutView;
+  }
   sessionsToFlush.add(winSession);
 
   // 更新主窗口引用
