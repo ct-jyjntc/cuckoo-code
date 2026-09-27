@@ -2,8 +2,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert';
 
-// 只测纯函数：generateId、formatTime、truncate
-// escapeHtml 等需要 DOM 的函数单独 mock
+// 只测纯函数：generateId、formatTime、truncate 及不依赖真实 DOM 的 UI 函数
 
 // 用简单 DOM stub
 const mkEl = () => ({ textContent: '', innerHTML: '', style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } } });
@@ -41,10 +40,6 @@ test('truncate 基本与默认长度', () => {
   assert.strictEqual(ui.truncate(null), '');
   const long = 'x'.repeat(60);
   assert.strictEqual(ui.truncate(long).length, 53);
-});
-
-test('escapeHtml 返回字符串', () => {
-  assert.strictEqual(typeof ui.escapeHtml('<script>'), 'string');
 });
 
 test('updateHomeMode 首页模式', () => {

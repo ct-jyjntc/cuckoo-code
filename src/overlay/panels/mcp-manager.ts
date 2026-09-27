@@ -51,26 +51,15 @@ function bindMcpListDelegation(list: HTMLElement): void {
 
 function renderMcpItem(s: any): HTMLElement {
   const status = s.connected ? '已连接' : (s.enabled ? '未连接' : '已禁用');
-  const statusColor = s.connected ? '#4ade80' : (s.enabled ? '#ffc107' : '#5d6280');
+  const dotClass = s.connected ? 'connected' : (s.enabled ? 'enabled' : 'disabled');
   // 来源标记：项目级 / 用户级
   const srcLabel = s.source === 'project' ? '项目' : '用户';
-  const srcColor = s.source === 'project' ? '#8b93ff' : '#5d6280';
-  const dot = h('span', {
-    class: 'cuckoo-mcp-dot',
-    style: {
-      width: '8px', height: '8px', borderRadius: '50%',
-      background: statusColor, flexShrink: '0', marginLeft: 'auto',
-    },
-  });
+  const srcClass = s.source === 'project' ? 'project' : 'user';
+  const dot = h('span', { class: `cuckoo-mcp-dot ${dotClass}` });
   dot.title = status;
   return h('div', { class: 'cuckoo-window-item cuckoo-mcp-item', dataset: { mcpName: String(s.name) } },
     h('span', { class: 'cuckoo-window-name' }, String(s.name)),
-    h('span', {
-      style: {
-        fontSize: '10px', padding: '1px 5px', borderRadius: '4px',
-        background: srcColor + '33', color: srcColor, flexShrink: '0', marginLeft: '6px',
-      },
-    }, srcLabel),
+    h('span', { class: `cuckoo-mcp-src ${srcClass}` }, srcLabel),
     dot,
   );
 }

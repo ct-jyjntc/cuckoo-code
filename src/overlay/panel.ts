@@ -65,17 +65,6 @@ function truncate(text: any, maxLen: number = 50): string {
 }
 
 /**
- * HTML 转义，防止 XSS 攻击
- * @param text - 要转义的文本
- * @returns 转义后的 HTML 字符串
- */
-function escapeHtml(text: any): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-/**
  * 显示浮动提示弹窗
  * @param text - 提示文本
  * @param duration - 显示时长（毫秒），默认 2200
@@ -113,56 +102,24 @@ function showConfirmDialog(text: string, options?: { okText?: string; showCancel
   if (old) old.remove();
 
   return new Promise((resolve) => {
-    const dialog = document.createElement('div');
-    dialog.id = 'cuckoo-confirm-dialog';
-    dialog.style.cssText = `
-      position: fixed; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 2147483648;
-      min-width: 280px; max-width: 380px;
-      background: rgba(22, 24, 44, 0.96);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border: 1px solid rgba(139, 147, 255, 0.35);
-      border-radius: 14px;
-      padding: 20px 18px 16px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-      color: #dde1ff; font-size: 13px; line-height: 1.6;
-      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
-      text-align: center;
-    `;
-    const cancelBtnHtml = showCancel
-      ? `<button id="cuckoo-confirm-cancel" style="
-          padding: 9px 24px; border: 1px solid rgba(139,147,255,0.4); border-radius: 10px;
-          background: transparent; color: #aab0ff;
-          font-size: 13px; font-weight: 600; cursor: pointer;
-          margin-right: 10px; transition: all 0.2s;
-        ">${cancelText}</button>`
-      : '';
-    dialog.innerHTML = `
-      <div style="margin-bottom:16px;white-space:pre-wrap;word-break:break-word;">${text}</div>
-      <div>${cancelBtnHtml}
-        <button id="cuckoo-confirm-ok" style="
-          padding: 9px 28px; border: none; border-radius: 10px;
-          background: linear-gradient(135deg, #8b93ff, #6d76ff); color: #fff;
-          font-size: 13px; font-weight: 600; cursor: pointer;
-          transition: all 0.2s;
-        ">${okText}</button>
-      </div>
-    `;
-    document.body.appendChild(dialog);
-
     const cleanup = () => dialog.remove();
-    dialog.querySelector('#cuckoo-confirm-ok')!.addEventListener('click', () => {
-      cleanup();
-      resolve(true);
-    });
-    if (showCancel) {
-      dialog.querySelector('#cuckoo-confirm-cancel')!.addEventListener('click', () => {
-        cleanup();
-        resolve(false);
-      });
-    }
+    const dialog = h('div', { class: 'cuckoo-confirm-dialog' },
+      h('div', { class: 'cuckoo-confirm-text' }, text),
+      h('div', null,
+        showCancel
+          ? h('button', {
+              class: 'cuckoo-confirm-btn cuckoo-confirm-btn-cancel',
+              onClick: () => { cleanup(); resolve(false); },
+            }, cancelText)
+          : null,
+        h('button', {
+          class: 'cuckoo-confirm-btn cuckoo-confirm-btn-ok',
+          onClick: () => { cleanup(); resolve(true); },
+        }, okText),
+      ),
+    );
+    dialog.id = 'cuckoo-confirm-dialog';
+    document.body.appendChild(dialog);
   });
 }
 
@@ -304,9 +261,7 @@ function renderHistory(): void {
   bindHistoryDelegation(list);
 
   if (commandHistory.length === 0) {
-    replaceChildrenOf(list, h('div', {
-      style: { color: '#666', fontSize: '12px', fontStyle: 'italic', padding: '8px 0' },
-    }, '暂无记录'));
+    replaceChildrenOf(list, h('div', { class: 'cuckoo-history-empty' }, '暂无记录'));
     return;
   }
 
@@ -423,7 +378,6 @@ export {
   generateId,
   formatTime,
   truncate,
-  escapeHtml,
   showToast,
   showConfirmDialog,
   setTaskStatus,

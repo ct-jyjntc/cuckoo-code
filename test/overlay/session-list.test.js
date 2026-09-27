@@ -11,8 +11,6 @@ import { setupDom } from '../helpers/dom';
 
 vi.mock('../../src/overlay/panel.js', () => ({
   showToast: () => {},
-  escapeHtml: (t) => String(t)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
 }));
 
 let ctx;

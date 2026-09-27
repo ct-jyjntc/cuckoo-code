@@ -27,3 +27,7 @@ test('OVERLAY_CSS 包含工具调用遮罩样式', () => {
   assert.ok(OVERLAY_CSS.includes('.cuckoo-tool-mask-spinner'));
 });
 
+test('OVERLAY_HTML 不包含内联样式', () => {
+  assert.ok(!OVERLAY_HTML.includes('style="'), 'OVERLAY_HTML 中不应存在 style=" 内联样式');
+});
+
