@@ -1,6 +1,7 @@
 /**
  * MCP 管理浮动面板：列表渲染、配置加载/保存、打开/关闭
  * 由 events.ts 拆分而来（P4.5），逻辑保持不变。
+ * T7：面板按钮的事件绑定也下沉到本模块（bindMcpPanel）。
  */
 import { showToast, showConfirmDialog } from '../panel.js';
 import { h, replaceChildrenOf } from '../dom.js';
@@ -232,4 +233,12 @@ async function handleMcpSave(sendToChat: any) {
   }
 }
 
-export { loadMcpConfigToJson, renderMcpList, openMcpManager, closeMcpManager, handleMcpSave };
+/** 绑定 MCP 面板相关按钮（打开 / 关闭 / 刷新 / 保存） */
+function bindMcpPanel(sendToChat: any): void {
+  document.getElementById('cuckoo-btn-mcp')?.addEventListener('click', openMcpManager);
+  document.getElementById('cuckoo-mcp-close')?.addEventListener('click', closeMcpManager);
+  document.getElementById('cuckoo-mcp-refresh')?.addEventListener('click', renderMcpList);
+  document.getElementById('cuckoo-mcp-save')?.addEventListener('click', () => handleMcpSave(sendToChat));
+}
+
+export { loadMcpConfigToJson, renderMcpList, openMcpManager, closeMcpManager, handleMcpSave, bindMcpPanel };

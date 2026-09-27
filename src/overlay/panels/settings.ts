@@ -1,9 +1,52 @@
 /**
- * 设置弹窗：加载/保存/恢复默认，以及自动压缩与 token 显示
+ * 设置弹窗：加载/保存/恢复默认
  * 由 events.ts 拆分而来（P4.5），逻辑保持不变。
+ * T7：弹窗按钮的事件绑定（含「刷新技能与代理」）下沉到本模块（bindSettingsPanel）；
+ * 自动压缩 → ../auto-compact.js，token 统计 → ../token-counter.js。
  */
 import { showToast } from '../panel.js';
 import { state } from '../state.js';
+
+/**
+ * 「刷新技能与代理」按钮：让主进程重新扫描技能 + 代理目录，把最新清单发给 AI
+ */
+async function handleSendSkills(sendToChat: any) {
+  const api = window.electronAPI;
+  if (!api || !api.refreshSkills) {
+    showToast('接口不可用', 3000);
+    return;
+  }
+  try {
+    const result = await api.refreshSkills();
+    if (!result || !result.success) {
+      showToast('获取清单失败: ' + ((result && result.error) || '未知错误'), 3000);
+      return;
+    }
+    const section = result.section || '';
+    if (!section.trim()) {
+      showToast('没有找到任何技能或代理', 3000);
+      return;
+    }
+    // 注意：sendToChat 是 async，必须 await，否则恒为真值、误报成功
+    const ok = await sendToChat(section, '技能与代理清单', 300);
+    if (!ok) {
+      showToast('发送失败：未找到输入框', 3000);
+      return;
+    }
+    showToast('已发送（技能 ' + (result.skillCount || 0) + ' 个 / 代理 ' + (result.agentCount || 0) + ' 个）', 2500);
+  } catch (e: any) {
+    showToast('发送失败: ' + e.message, 3000);
+  }
+}
+
+/** 绑定设置弹窗相关按钮（打开 / 关闭 / 保存 / 恢复默认 / 发送技能清单） */
+function bindSettingsPanel(sendToChat: any): void {
+  document.getElementById('cuckoo-btn-settings')?.addEventListener('click', openSettings);
+  document.getElementById('cuckoo-settings-close')?.addEventListener('click', closeSettings);
+  document.getElementById('cuckoo-settings-save')?.addEventListener('click', saveSettings);
+  document.getElementById('cuckoo-settings-reset')?.addEventListener('click', resetSettings);
+  document.getElementById('cuckoo-skills-send')?.addEventListener('click', () => handleSendSkills(sendToChat));
+}
 
 /** 打开设置弹窗：从 localStorage 加载配置到输入框 */
 function openSettings() {
@@ -118,4 +161,4 @@ function saveSettings() {
   closeSettings();
 }
 
-export { openSettings, closeSettings, resetSettings, saveSettings };
+export { openSettings, closeSettings, resetSettings, saveSettings, bindSettingsPanel };

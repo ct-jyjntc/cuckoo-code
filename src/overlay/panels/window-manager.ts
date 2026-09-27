@@ -1,6 +1,7 @@
 /**
  * 窗口管理浮动面板：列表渲染、打开/关闭、生成文档
  * 由 events.ts 拆分而来（P4.5），逻辑保持不变。
+ * T7：面板按钮的事件绑定也下沉到本模块（bindWindowManagerPanel）。
  */
 import { showToast } from '../panel.js';
 import { h, replaceChildrenOf } from '../dom.js';
@@ -147,4 +148,23 @@ async function handleGenerateDoc(sendToChat: any) {
   }
 }
 
-export { renderWindowList, openWindowManager, closeWindowManager, handleGenerateDoc };
+/** 绑定窗口管理面板相关按钮（打开面板 / 新建窗口 / 关闭 / 刷新） */
+function bindWindowManagerPanel(): void {
+  document.getElementById('cuckoo-btn-window-manager')?.addEventListener('click', () => {
+    openWindowManager();
+  });
+  // 新建窗口（不指定平台，让窗口显示平台选择页）
+  document.getElementById('cuckoo-wm-new-window')?.addEventListener('click', async () => {
+    try {
+      await window.electronAPI.createProfileWindow();
+      showToast('已打开平台选择', 2200);
+      await renderWindowList();
+    } catch (err: any) {
+      showToast('创建新窗口失败: ' + (err.message || err), 3000);
+    }
+  });
+  document.getElementById('cuckoo-wm-close')?.addEventListener('click', closeWindowManager);
+  document.getElementById('cuckoo-wm-refresh')?.addEventListener('click', renderWindowList);
+}
+
+export { renderWindowList, openWindowManager, closeWindowManager, handleGenerateDoc, bindWindowManagerPanel };
