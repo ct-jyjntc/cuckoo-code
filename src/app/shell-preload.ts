@@ -42,6 +42,12 @@ const shellAPI = {
   enableMcpServer: (name: string) => ipcRenderer.invoke('enable-mcp-server', { name }),
   disableMcpServer: (name: string) => ipcRenderer.invoke('disable-mcp-server', { name }),
   getMcpTools: () => ipcRenderer.invoke('get-mcp-tools'),
+  // ===== 设置面板（主进程 settings.json 存储；settings-changed 广播由主进程发向 AI 页面 view）=====
+  getSettings: () => ipcRenderer.invoke('settings-get'),
+  saveSettings: (patch: any) => ipcRenderer.invoke('settings-set', { patch }),
+  resetSettings: () => ipcRenderer.invoke('settings-reset'),
+  // 「刷新技能与代理」（handler 用 event.sender 反查窗口取 projectDir，shell webContents 可被命中）
+  refreshSkills: () => ipcRenderer.invoke('refresh-skills'),
   // 壳页面 → 主进程 → AI 页面 view → bridge preload 的 sendToChat
   sendToChat: (msg: string, tag?: string, delayMs?: number) =>
     ipcRenderer.invoke('shell-send-to-chat', { msg, tag, delayMs }),

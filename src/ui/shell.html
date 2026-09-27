@@ -107,7 +107,87 @@
               </div>
             </div>
             <div class="panel-content" data-panel-content="task" hidden></div>
-            <div class="panel-content" data-panel-content="settings" hidden></div>
+            <!-- 设置面板：行式布局（标签左/上、控件右/下），读写走 settings IPC -->
+            <div class="panel-content" data-panel-content="settings" hidden>
+              <div class="settings-form">
+                <div class="settings-section">
+                  <div class="settings-section-title">失败自动重试</div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-set-retry-enabled">失败自动重试</label>
+                    <input id="shell-set-retry-enabled" type="checkbox" class="settings-checkbox" />
+                  </div>
+                  <div class="settings-row settings-row-col">
+                    <label class="settings-label" for="shell-set-retry-delay-min">普通失败间隔（秒）</label>
+                    <div class="settings-range">
+                      <input id="shell-set-retry-delay-min" type="number" min="0" step="1" class="settings-input" />
+                      <span class="settings-sep">至</span>
+                      <input id="shell-set-retry-delay-max" type="number" min="0" step="1" class="settings-input" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-set-retry-count">普通失败重试次数（负数=无限）</label>
+                    <input id="shell-set-retry-count" type="number" step="1" class="settings-input" />
+                  </div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-set-retry-429-delay">操作频繁后重试间隔（秒）</label>
+                    <input id="shell-set-retry-429-delay" type="number" min="0" step="1" class="settings-input" />
+                  </div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-set-retry-429-count">操作频繁后重试次数（负数=无限）</label>
+                    <input id="shell-set-retry-429-count" type="number" step="1" class="settings-input" />
+                  </div>
+                  <div class="settings-row settings-row-col">
+                    <label class="settings-label" for="shell-set-retry-prompt">重试提示词</label>
+                    <textarea id="shell-set-retry-prompt" class="settings-textarea" rows="2"></textarea>
+                  </div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-set-xhr-idle-timeout">AI 回复时间超时后重试（秒）</label>
+                    <input id="shell-set-xhr-idle-timeout" type="number" min="0" step="1" class="settings-input" />
+                  </div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-set-watchdog-prompt">AI 回复时间超时后重试提示词</label>
+                    <input id="shell-set-watchdog-prompt" type="text" class="settings-input" />
+                  </div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-set-watchdog-count">AI 回复时间超时重试次数（负数=无限）</label>
+                    <input id="shell-set-watchdog-count" type="number" step="1" class="settings-input" />
+                  </div>
+                </div>
+                <div class="settings-section">
+                  <div class="settings-section-title">发送延迟设置</div>
+                  <div class="settings-row settings-row-col">
+                    <label class="settings-label" for="shell-set-delay-min">发送延迟（秒）</label>
+                    <div class="settings-range">
+                      <input id="shell-set-delay-min" type="number" min="0" step="0.1" class="settings-input" />
+                      <span class="settings-sep">至</span>
+                      <input id="shell-set-delay-max" type="number" min="0" step="0.1" class="settings-input" />
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-section">
+                  <div class="settings-section-title">附件上传间隔</div>
+                  <div class="settings-row settings-row-col">
+                    <label class="settings-label" for="shell-set-attach-delay-min">附件上传后等待检测的时长（秒）</label>
+                    <div class="settings-range">
+                      <input id="shell-set-attach-delay-min" type="number" min="0" step="0.1" class="settings-input" />
+                      <span class="settings-sep">至</span>
+                      <input id="shell-set-attach-delay-max" type="number" min="0" step="0.1" class="settings-input" />
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-actions">
+                  <button class="panel-btn" id="shell-btn-settings-save">保存设置</button>
+                  <button class="panel-btn" id="shell-btn-settings-reset">恢复默认</button>
+                </div>
+                <div class="settings-section">
+                  <div class="settings-section-title">技能与代理（Skills / Agents）</div>
+                  <div class="settings-row settings-row-col">
+                    <button class="panel-btn" id="shell-btn-skills-send">刷新技能与代理</button>
+                    <span class="settings-hint">重新扫描技能/代理目录，并把最新清单发给 AI</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="panel-content" data-panel-content="project" hidden></div>
           </div>
           <div class="panel-toast" id="panel-toast" hidden></div>

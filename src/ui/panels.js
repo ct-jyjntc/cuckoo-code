@@ -1,7 +1,7 @@
 /**
  * shell 侧栏面板内容（ES Module，供 happy-dom 测试导入）。
- * 承载「会话」「窗口」「MCP」三个面板，逻辑对照迁移自 overlay 侧
- * session-list.ts、panels/window-manager.ts、panels/mcp-manager.ts（功能等价）。
+ * 承载「会话」「窗口」「MCP」「设置」四个面板，逻辑对照迁移自 overlay 侧
+ * session-list.ts、panels/window-manager.ts、panels/mcp-manager.ts、panels/settings.ts（功能等价）。
  * shell 是 file:// 自有页面，但会话 id / profile 名等外部数据
  * 一律走 textContent / dataset，不拼 innerHTML。
  */
@@ -472,6 +472,186 @@ export function initPanels(api, doc) {
     btnMcpNotifyCancel.addEventListener('click', hideMcpNotify);
   }
 
+  // ===== 设置面板（逻辑对照迁移自 overlay panels/settings.ts，功能等价） =====
+  // 读写全部走主进程设置存储 IPC（getSettings/saveSettings/resetSettings），不碰 localStorage。
+  // 存储毫秒、界面秒：加载时 /1000，保存时 secToMs。校验顺序与文案与旧实现逐条一致。
+
+  function setVal(id, v) {
+    const node = doc.getElementById(id);
+    if (node) node.value = v;
+  }
+
+  /** 把一份完整设置填入表单（存储毫秒，界面秒） */
+  function fillSettingsForm(s) {
+    const enEl = doc.getElementById('shell-set-retry-enabled');
+    if (enEl) enEl.checked = !!s.retryEnabled;
+    setVal('shell-set-retry-delay-min', s.retryDelayMin / 1000);
+    setVal('shell-set-retry-delay-max', s.retryDelayMax / 1000);
+    setVal('shell-set-retry-count', String(s.retryCount));
+    setVal('shell-set-retry-429-delay', s.retry429Delay / 1000);
+    setVal('shell-set-retry-429-count', String(s.retry429Count));
+    setVal('shell-set-retry-prompt', s.retryPrompt);
+    setVal('shell-set-xhr-idle-timeout', s.xhrIdleTimeout / 1000);
+    setVal('shell-set-watchdog-prompt', s.watchdogPrompt);
+    setVal('shell-set-watchdog-count', String(s.watchdogCount));
+    setVal('shell-set-attach-delay-min', s.attachDelayMin / 1000);
+    setVal('shell-set-attach-delay-max', s.attachDelayMax / 1000);
+    setVal('shell-set-delay-min', s.sendDelayMin / 1000);
+    setVal('shell-set-delay-max', s.sendDelayMax / 1000);
+  }
+
+  /** 打开设置面板：从主进程拉取设置填充表单 */
+  async function loadSettingsForm() {
+    if (!api.getSettings) {
+      showPanelToast(doc, 'API 不可用', 3000);
+      return;
+    }
+    let s;
+    try {
+      s = await api.getSettings();
+    } catch {
+      showPanelToast(doc, '设置加载失败', 3000);
+      return;
+    }
+    if (!s || typeof s !== 'object') {
+      showPanelToast(doc, '设置加载失败', 3000);
+      return;
+    }
+    fillSettingsForm(s);
+  }
+
+  /** 保存设置：校验（顺序/文案与 overlay 一致）→ 秒转毫秒 → saveSettings */
+  async function handleSettingsSave() {
+    const val = function (id) {
+      const node = doc.getElementById(id);
+      return node ? node.value : '';
+    };
+    const secToMs = function (v) { return Math.round(parseFloat(v) * 1000); };
+    const dmin = secToMs(val('shell-set-retry-delay-min'));
+    const dmax = secToMs(val('shell-set-retry-delay-max'));
+    if (Number.isNaN(dmin) || dmin < 0) { showPanelToast(doc, '普通失败最小间隔必须是非负数字（秒）', 3000); return; }
+    if (Number.isNaN(dmax) || dmax < dmin) { showPanelToast(doc, '普通失败最大间隔不能小于最小间隔', 3000); return; }
+    const cnt = parseInt(val('shell-set-retry-count'), 10);
+    if (Number.isNaN(cnt)) { showPanelToast(doc, '普通失败重试次数必须是整数', 3000); return; }
+    const d429 = secToMs(val('shell-set-retry-429-delay'));
+    if (Number.isNaN(d429) || d429 < 0) { showPanelToast(doc, '操作频繁重试间隔必须是非负数字（秒）', 3000); return; }
+    const c429 = parseInt(val('shell-set-retry-429-count'), 10);
+    if (Number.isNaN(c429)) { showPanelToast(doc, '操作频繁重试次数必须是整数', 3000); return; }
+    const prompt = val('shell-set-retry-prompt').trim();
+    if (!prompt) { showPanelToast(doc, '重试提示词不能为空', 3000); return; }
+    const idleTimeout = secToMs(val('shell-set-xhr-idle-timeout'));
+    if (Number.isNaN(idleTimeout) || idleTimeout < 0) { showPanelToast(doc, '挂起超时必须是非负数字（秒）', 3000); return; }
+    const watchdogPrompt = val('shell-set-watchdog-prompt').trim();
+    if (!watchdogPrompt) { showPanelToast(doc, '工具循环超时提示词不能为空', 3000); return; }
+    const watchdogCount = parseInt(val('shell-set-watchdog-count'), 10);
+    if (Number.isNaN(watchdogCount)) { showPanelToast(doc, '工具循环催继续次数必须是整数', 3000); return; }
+    const smin = secToMs(val('shell-set-delay-min'));
+    const smax = secToMs(val('shell-set-delay-max'));
+    if (Number.isNaN(smin) || smin < 0) { showPanelToast(doc, '发送延迟最小值必须是非负数字（秒）', 3000); return; }
+    if (Number.isNaN(smax) || smax < smin) { showPanelToast(doc, '发送延迟最大值不能小于最小值', 3000); return; }
+    if (smax > 10000) { showPanelToast(doc, '发送延迟最大值不能超过 10 秒', 3000); return; }
+    const amin = secToMs(val('shell-set-attach-delay-min'));
+    const amax = secToMs(val('shell-set-attach-delay-max'));
+    if (Number.isNaN(amin) || amin < 0) { showPanelToast(doc, '附件上传间隔最小值必须是非负数字（秒）', 3000); return; }
+    if (Number.isNaN(amax) || amax < amin) { showPanelToast(doc, '附件上传间隔最大值不能小于最小值', 3000); return; }
+    if (amax > 60000) { showPanelToast(doc, '附件上传间隔最大值不能超过 60 秒', 3000); return; }
+
+    if (!api.saveSettings) {
+      showPanelToast(doc, 'API 不可用', 3000);
+      return;
+    }
+    const enEl = doc.getElementById('shell-set-retry-enabled');
+    let result;
+    try {
+      result = await api.saveSettings({
+        retryEnabled: !!(enEl && enEl.checked),
+        retryDelayMin: dmin,
+        retryDelayMax: dmax,
+        retryCount: cnt,
+        retry429Delay: d429,
+        retry429Count: c429,
+        retryPrompt: prompt,
+        xhrIdleTimeout: idleTimeout,
+        watchdogPrompt: watchdogPrompt,
+        watchdogCount: watchdogCount,
+        sendDelayMin: smin,
+        sendDelayMax: smax,
+        attachDelayMin: amin,
+        attachDelayMax: amax,
+      });
+    } catch {
+      showPanelToast(doc, '设置保存失败', 3000);
+      return;
+    }
+    if (!result || !result.settings) {
+      showPanelToast(doc, '设置保存失败', 3000);
+      return;
+    }
+    showPanelToast(doc, '设置已保存', 2500);
+  }
+
+  /** 恢复默认：resetSettings（主进程排除 autoCompact 两字段），用返回的完整设置重填表单 */
+  async function handleSettingsReset() {
+    if (!api.resetSettings) {
+      showPanelToast(doc, 'API 不可用', 3000);
+      return;
+    }
+    let result;
+    try {
+      result = await api.resetSettings();
+    } catch {
+      showPanelToast(doc, '恢复默认失败', 3000);
+      return;
+    }
+    if (!result || !result.settings) {
+      showPanelToast(doc, '恢复默认失败', 3000);
+      return;
+    }
+    fillSettingsForm(result.settings);
+    showPanelToast(doc, '已恢复默认设置', 2500);
+  }
+
+  /** 「刷新技能与代理」：让主进程重扫技能/代理目录，把最新清单发给 AI */
+  async function handleSendSkills() {
+    if (!api.refreshSkills) {
+      showPanelToast(doc, '接口不可用', 3000);
+      return;
+    }
+    try {
+      const result = await api.refreshSkills();
+      if (!result || !result.success) {
+        showPanelToast(doc, '获取清单失败: ' + ((result && result.error) || '未知错误'), 3000);
+        return;
+      }
+      const section = result.section || '';
+      if (!section.trim()) {
+        showPanelToast(doc, '没有找到任何技能或代理', 3000);
+        return;
+      }
+      const sent = api.sendToChat ? await api.sendToChat(section, '技能与代理清单', 300) : null;
+      if (!sent || !sent.success) {
+        showPanelToast(doc, '发送失败: ' + ((sent && sent.error) || '未知错误'), 3000);
+        return;
+      }
+      showPanelToast(doc, '已发送（技能 ' + (result.skillCount || 0) + ' 个 / 代理 ' + (result.agentCount || 0) + ' 个）', 2500);
+    } catch (err) {
+      showPanelToast(doc, '发送失败: ' + (err && err.message ? err.message : err), 3000);
+    }
+  }
+
+  const btnSettingsSave = doc.getElementById('shell-btn-settings-save');
+  if (btnSettingsSave) {
+    btnSettingsSave.addEventListener('click', function () { handleSettingsSave(); });
+  }
+  const btnSettingsReset = doc.getElementById('shell-btn-settings-reset');
+  if (btnSettingsReset) {
+    btnSettingsReset.addEventListener('click', function () { handleSettingsReset(); });
+  }
+  const btnSkillsSend = doc.getElementById('shell-btn-skills-send');
+  if (btnSkillsSend) {
+    btnSkillsSend.addEventListener('click', function () { handleSendSkills(); });
+  }
+
   // ===== 面板切换：显隐内容容器，按需渲染 =====
   function handlePanelChange(panelId) {
     const contents = doc.querySelectorAll('.panel-content');
@@ -480,6 +660,7 @@ export function initPanels(api, doc) {
     }
     if (panelId === 'chat') renderSessionList();
     if (panelId === 'window') renderWindowList();
+    if (panelId === 'settings') loadSettingsForm();
     if (panelId === 'mcp') {
       renderMcpList();
       loadMcpConfigToJson();
@@ -492,5 +673,6 @@ export function initPanels(api, doc) {
     renderWindowList: renderWindowList,
     renderMcpList: renderMcpList,
     loadMcpConfigToJson: loadMcpConfigToJson,
+    loadSettingsForm: loadSettingsForm,
   };
 }
