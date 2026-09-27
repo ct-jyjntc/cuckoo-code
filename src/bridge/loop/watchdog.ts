@@ -7,7 +7,7 @@
  * 检测方式：hook（主世界）在流静默超过阈值时派发 'cuckoo-stream-idle' 事件，
  * 本模块（隔离世界）订阅后按次数发提示词。
  *
- * 配置（localStorage，每窗口独立）：
+ * 配置（localStorage，每窗口独立；键名定义见 overlay/storage.ts 的 KEYS）：
  *  - cuckoo-xhr-idle-timeout   静默阈值（毫秒，默认 300000，<=0 禁用；hook 侧读取）
  *  - cuckoo-watchdog-prompt    超时提示词（默认"请继续"）
  *  - cuckoo-watchdog-count     最大催次数（默认 3，负数=无限）
@@ -15,6 +15,7 @@
 import { showToast } from '../../overlay/panel.js';
 import { getProviderByUrl } from '../../providers/registry.js';
 import { sendToChat } from '../../overlay/chat-input.js';
+import { KEYS } from '../../overlay/storage.js';
 
 const DEFAULT_PROMPT = '请继续';
 const DEFAULT_COUNT = 3;
@@ -38,9 +39,9 @@ function readConfig(): { prompt: string; count: number } {
   let prompt = DEFAULT_PROMPT;
   let count = DEFAULT_COUNT;
   try {
-    const p = localStorage.getItem('cuckoo-watchdog-prompt');
+    const p = localStorage.getItem(KEYS.watchdogPrompt);
     if (p) prompt = p;
-    const c = parseInt(localStorage.getItem('cuckoo-watchdog-count') as string, 10);
+    const c = parseInt(localStorage.getItem(KEYS.watchdogCount) as string, 10);
     if (Number.isFinite(c)) count = c;
   } catch (_) {}
   return { prompt, count };

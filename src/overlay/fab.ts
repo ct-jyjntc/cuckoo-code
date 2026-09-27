@@ -2,6 +2,8 @@
  * 悬浮球拖动：支持鼠标拖动并持久化位置
  * 由 events.ts 拆分而来（P4.5），逻辑保持不变。
  */
+import { KEYS, readKey, writeKey } from './storage.js';
+
 /**
  * 让悬浮球支持鼠标拖动，并持久化位置
  * 拖动超过阈值视为移动，否则视为点击（保留切换面板功能）
@@ -9,7 +11,6 @@
  */
 function makeFabDraggable(badge: any) {
   const THRESHOLD = 4;
-  const POS_KEY = 'cuckoo-fab-pos';
   let dragging = false;
   let moved = false;
   let startX = 0, startY = 0, startLeft = 0, startTop = 0;
@@ -26,15 +27,10 @@ function makeFabDraggable(badge: any) {
   }
 
   // 恢复保存的位置
-  try {
-    const saved = localStorage.getItem(POS_KEY);
-    if (saved) {
-      const p = JSON.parse(saved);
-      if (typeof p.left === 'number' && typeof p.top === 'number') {
-        applyPos(p.left, p.top);
-      }
-    }
-  } catch (_) { /* ignore */ }
+  const saved: any = readKey(KEYS.fabPos, null);
+  if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+    applyPos(saved.left, saved.top);
+  }
 
   badge.addEventListener('pointerdown', (e: any) => {
     if (e.button !== 0) return;
@@ -64,7 +60,7 @@ function makeFabDraggable(badge: any) {
     if (moved) {
       try {
         const rect = badge.getBoundingClientRect();
-        localStorage.setItem(POS_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
+        writeKey(KEYS.fabPos, { left: rect.left, top: rect.top });
       } catch (_) { /* ignore */ }
     }
   }

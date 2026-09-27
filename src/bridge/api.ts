@@ -5,6 +5,7 @@
  */
 import { createRequire } from 'node:module';
 import type { ElectronAPI, McpServerConfig } from './api-types.js';
+import { KEYS } from '../overlay/storage.js';
 
 const require = createRequire(import.meta.url);
 const { contextBridge, ipcRenderer } = require('electron');
@@ -34,8 +35,8 @@ const electronAPI: ElectronAPI = {
     // 附件上传间隔（毫秒），随 JS 执行一并传给主进程的 attachFile 工具
     let attachDelayMin, attachDelayMax;
     try {
-      const mn = parseInt(localStorage.getItem('cuckoo-attach-delay-min') as string, 10);
-      const mx = parseInt(localStorage.getItem('cuckoo-attach-delay-max') as string, 10);
+      const mn = parseInt(localStorage.getItem(KEYS.attachDelayMin) as string, 10);
+      const mx = parseInt(localStorage.getItem(KEYS.attachDelayMax) as string, 10);
       if (Number.isFinite(mn)) attachDelayMin = mn;
       if (Number.isFinite(mx)) attachDelayMax = mx;
     } catch (_) {}

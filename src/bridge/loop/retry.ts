@@ -3,7 +3,7 @@
  * 订阅 intercept-observer 的 cuckoo-ai-error 事件，按配置退避后发送提示词，
  * 触发 AI 重新回答。成功回复会重置计数。
  *
- * 配置来源：localStorage（每窗口独立）
+ * 配置来源：localStorage（每窗口独立），键名定义见 overlay/storage.ts 的 KEYS
  *  - cuckoo-retry-enabled        '1' | '0'  默认 '1'
  *  - cuckoo-retry-delay-min      毫秒，默认 4000
  *  - cuckoo-retry-delay-max      毫秒，默认 10000
@@ -17,6 +17,7 @@ import { onAiError, onInterceptedResponse } from '../intercept/observer.js';
 import { showToast } from '../../overlay/panel.js';
 import { withLog } from '../../infra/with-log.js';
 import { getProviderByUrl } from '../../providers/registry.js';
+import { KEYS } from '../../overlay/storage.js';
 
 const DEFAULT_PROMPT = '刚才的回复似乎中断了，请重新完整回答上一个问题。';
 const DEFAULTS = {
@@ -32,19 +33,19 @@ const DEFAULTS = {
 let readConfig = function readConfig(): any {
   const cfg = Object.assign({}, DEFAULTS);
   try {
-    const en = localStorage.getItem('cuckoo-retry-enabled');
+    const en = localStorage.getItem(KEYS.retryEnabled);
     if (en !== null) cfg.enabled = en === '1';
-    const dmin = parseInt(localStorage.getItem('cuckoo-retry-delay-min') || '', 10);
+    const dmin = parseInt(localStorage.getItem(KEYS.retryDelayMin) || '', 10);
     if (Number.isFinite(dmin)) cfg.delayMin = dmin;
-    const dmax = parseInt(localStorage.getItem('cuckoo-retry-delay-max') || '', 10);
+    const dmax = parseInt(localStorage.getItem(KEYS.retryDelayMax) || '', 10);
     if (Number.isFinite(dmax)) cfg.delayMax = dmax;
-    const cnt = parseInt(localStorage.getItem('cuckoo-retry-count') || '', 10);
+    const cnt = parseInt(localStorage.getItem(KEYS.retryCount) || '', 10);
     if (Number.isFinite(cnt)) cfg.count = cnt;
-    const d429 = parseInt(localStorage.getItem('cuckoo-retry-429-delay') || '', 10);
+    const d429 = parseInt(localStorage.getItem(KEYS.retry429Delay) || '', 10);
     if (Number.isFinite(d429)) cfg.delay429 = d429;
-    const c429 = parseInt(localStorage.getItem('cuckoo-retry-429-count') || '', 10);
+    const c429 = parseInt(localStorage.getItem(KEYS.retry429Count) || '', 10);
     if (Number.isFinite(c429)) cfg.count429 = c429;
-    const p = localStorage.getItem('cuckoo-retry-prompt');
+    const p = localStorage.getItem(KEYS.retryPrompt);
     if (p) cfg.prompt = p;
   } catch (e) { /* ignore */ }
   return cfg;

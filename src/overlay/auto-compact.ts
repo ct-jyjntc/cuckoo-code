@@ -3,6 +3,7 @@
  * 负责：配置读写（localStorage）、设置区 UI 同步、收到回复后按阈值触发压缩。
  * deps 显式注入（响应订阅、压缩触发、UI 提示），便于测试。
  */
+import { KEYS } from './storage.js';
 
 // 配置：是否启用 + 阈值（单位：万 token）
 let autoCompactEnabled = false;
@@ -22,8 +23,8 @@ interface AutoCompactDeps {
 /** 从 localStorage 读取自动压缩配置并同步到 UI */
 function loadAutoCompactConfig(): void {
   try {
-    const en = localStorage.getItem('cuckoo-auto-compact-enabled');
-    const th = localStorage.getItem('cuckoo-auto-compact-threshold');
+    const en = localStorage.getItem(KEYS.autoCompactEnabled);
+    const th = localStorage.getItem(KEYS.autoCompactThreshold);
     autoCompactEnabled = en === '1';
     // 同样避免 "parseFloat() || 80"（0 会被丢弃）
     if (th !== null) { const v = parseFloat(th); if (Number.isFinite(v) && v > 0) autoCompactThresholdWan = v; }
@@ -47,8 +48,8 @@ function saveAutoCompactConfig(notify: AutoCompactDeps['notify']): void {
   autoCompactEnabled = enabled;
   autoCompactThresholdWan = th;
   try {
-    localStorage.setItem('cuckoo-auto-compact-enabled', enabled ? '1' : '0');
-    localStorage.setItem('cuckoo-auto-compact-threshold', String(th));
+    localStorage.setItem(KEYS.autoCompactEnabled, enabled ? '1' : '0');
+    localStorage.setItem(KEYS.autoCompactThreshold, String(th));
   } catch (_) {}
   notify('自动压缩设置已保存：' + (enabled ? '开启，阈值 ' + th + ' 万' : '关闭'), 2500);
 }

@@ -6,6 +6,7 @@
  */
 import { showToast } from '../panel.js';
 import { state } from '../state.js';
+import { KEYS, removeKey } from '../storage.js';
 
 /**
  * 「刷新技能与代理」按钮：让主进程重新扫描技能 + 代理目录，把最新清单发给 AI
@@ -60,20 +61,20 @@ function openSettings() {
     return String(Number.isFinite(n) ? n / 1000 : dft);
   };
   try {
-    const en = localStorage.getItem('cuckoo-retry-enabled');
+    const en = localStorage.getItem(KEYS.retryEnabled);
     const enEl = document.getElementById('cuckoo-retry-enabled');
     if (enEl) (enEl as any).checked = en === null ? true : en === '1';
-    setVal('cuckoo-retry-delay-min', msToSec(localStorage.getItem('cuckoo-retry-delay-min') || '4000', 4));
-    setVal('cuckoo-retry-delay-max', msToSec(localStorage.getItem('cuckoo-retry-delay-max') || '10000', 10));
-    setVal('cuckoo-retry-count', localStorage.getItem('cuckoo-retry-count') || '10');
-    setVal('cuckoo-retry-429-delay', msToSec(localStorage.getItem('cuckoo-retry-429-delay') || '60000', 60));
-    setVal('cuckoo-retry-429-count', localStorage.getItem('cuckoo-retry-429-count') || '20');
-    setVal('cuckoo-retry-prompt', localStorage.getItem('cuckoo-retry-prompt') || '刚才的回复似乎中断了，请重新完整回答上一个问题。');
-    setVal('cuckoo-xhr-idle-timeout', msToSec(localStorage.getItem('cuckoo-xhr-idle-timeout') || '300000', 300));
-    setVal('cuckoo-watchdog-prompt', localStorage.getItem('cuckoo-watchdog-prompt') || '请继续');
-    setVal('cuckoo-watchdog-count', localStorage.getItem('cuckoo-watchdog-count') || '3');
-    setVal('cuckoo-attach-delay-min', msToSec(localStorage.getItem('cuckoo-attach-delay-min') || '500', 0.5));
-    setVal('cuckoo-attach-delay-max', msToSec(localStorage.getItem('cuckoo-attach-delay-max') || '1000', 1));
+    setVal('cuckoo-retry-delay-min', msToSec(localStorage.getItem(KEYS.retryDelayMin) || '4000', 4));
+    setVal('cuckoo-retry-delay-max', msToSec(localStorage.getItem(KEYS.retryDelayMax) || '10000', 10));
+    setVal('cuckoo-retry-count', localStorage.getItem(KEYS.retryCount) || '10');
+    setVal('cuckoo-retry-429-delay', msToSec(localStorage.getItem(KEYS.retry429Delay) || '60000', 60));
+    setVal('cuckoo-retry-429-count', localStorage.getItem(KEYS.retry429Count) || '20');
+    setVal('cuckoo-retry-prompt', localStorage.getItem(KEYS.retryPrompt) || '刚才的回复似乎中断了，请重新完整回答上一个问题。');
+    setVal('cuckoo-xhr-idle-timeout', msToSec(localStorage.getItem(KEYS.xhrIdleTimeout) || '300000', 300));
+    setVal('cuckoo-watchdog-prompt', localStorage.getItem(KEYS.watchdogPrompt) || '请继续');
+    setVal('cuckoo-watchdog-count', localStorage.getItem(KEYS.watchdogCount) || '3');
+    setVal('cuckoo-attach-delay-min', msToSec(localStorage.getItem(KEYS.attachDelayMin) || '500', 0.5));
+    setVal('cuckoo-attach-delay-max', msToSec(localStorage.getItem(KEYS.attachDelayMax) || '1000', 1));
   } catch (_) {}
   setVal('cuckoo-delay-min', state.sendDelayMin / 1000);
   setVal('cuckoo-delay-max', state.sendDelayMax / 1000);
@@ -87,17 +88,19 @@ function closeSettings() {
   if (panel) panel.classList.add('cuckoo-hidden');
 }
 
-/** 恢复默认：删除所有相关 localStorage 键，重置内存 state，刷新弹窗 */
+/** 恢复默认：删除设置相关 localStorage 键（从 KEYS 显式枚举派生），重置内存 state，刷新弹窗 */
 function resetSettings() {
-  const KEYS = [
-    'cuckoo-retry-enabled', 'cuckoo-retry-delay-min', 'cuckoo-retry-delay-max',
-    'cuckoo-retry-count', 'cuckoo-retry-429-delay', 'cuckoo-retry-429-count',
-    'cuckoo-retry-prompt', 'cuckoo-xhr-idle-timeout', 'cuckoo-watchdog-prompt',
-    'cuckoo-watchdog-count', 'cuckoo-send-delay-min', 'cuckoo-send-delay-max',
-    'cuckoo-attach-delay-min', 'cuckoo-attach-delay-max',
+  // 明确枚举要清的 KEYS 成员：只含设置弹窗管理的配置；
+  // fabPos / tokenCache 等无关键不在此列，避免误清。
+  const RESET_KEYS = [
+    KEYS.retryEnabled, KEYS.retryDelayMin, KEYS.retryDelayMax,
+    KEYS.retryCount, KEYS.retry429Delay, KEYS.retry429Count,
+    KEYS.retryPrompt, KEYS.xhrIdleTimeout, KEYS.watchdogPrompt,
+    KEYS.watchdogCount, KEYS.sendDelayMin, KEYS.sendDelayMax,
+    KEYS.attachDelayMin, KEYS.attachDelayMax,
   ];
   try {
-    for (const k of KEYS) localStorage.removeItem(k);
+    for (const k of RESET_KEYS) removeKey(k);
   } catch (_) {}
   state.sendDelayMin = 2000;
   state.sendDelayMax = 4000;
@@ -140,20 +143,20 @@ function saveSettings() {
 
   const enEl = document.getElementById('cuckoo-retry-enabled');
   try {
-    localStorage.setItem('cuckoo-retry-enabled', (enEl && (enEl as any).checked) ? '1' : '0');
-    localStorage.setItem('cuckoo-retry-delay-min', String(dmin));
-    localStorage.setItem('cuckoo-retry-delay-max', String(dmax));
-    localStorage.setItem('cuckoo-retry-count', String(cnt));
-    localStorage.setItem('cuckoo-retry-429-delay', String(d429));
-    localStorage.setItem('cuckoo-retry-429-count', String(c429));
-    localStorage.setItem('cuckoo-retry-prompt', prompt);
-    localStorage.setItem('cuckoo-xhr-idle-timeout', String(idleTimeout));
-    localStorage.setItem('cuckoo-watchdog-prompt', watchdogPrompt);
-    localStorage.setItem('cuckoo-watchdog-count', String(watchdogCount));
-    localStorage.setItem('cuckoo-send-delay-min', String(smin));
-    localStorage.setItem('cuckoo-send-delay-max', String(smax));
-    localStorage.setItem('cuckoo-attach-delay-min', String(amin));
-    localStorage.setItem('cuckoo-attach-delay-max', String(amax));
+    localStorage.setItem(KEYS.retryEnabled, (enEl && (enEl as any).checked) ? '1' : '0');
+    localStorage.setItem(KEYS.retryDelayMin, String(dmin));
+    localStorage.setItem(KEYS.retryDelayMax, String(dmax));
+    localStorage.setItem(KEYS.retryCount, String(cnt));
+    localStorage.setItem(KEYS.retry429Delay, String(d429));
+    localStorage.setItem(KEYS.retry429Count, String(c429));
+    localStorage.setItem(KEYS.retryPrompt, prompt);
+    localStorage.setItem(KEYS.xhrIdleTimeout, String(idleTimeout));
+    localStorage.setItem(KEYS.watchdogPrompt, watchdogPrompt);
+    localStorage.setItem(KEYS.watchdogCount, String(watchdogCount));
+    localStorage.setItem(KEYS.sendDelayMin, String(smin));
+    localStorage.setItem(KEYS.sendDelayMax, String(smax));
+    localStorage.setItem(KEYS.attachDelayMin, String(amin));
+    localStorage.setItem(KEYS.attachDelayMax, String(amax));
   } catch (_) {}
   state.sendDelayMin = smin;
   state.sendDelayMax = smax;

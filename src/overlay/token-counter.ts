@@ -3,16 +3,12 @@
  * 负责：按会话缓存 + 按天累计的 localStorage 持久化、面板「对话 Token」显示刷新、
  * 壳页面状态条同步。deps 显式注入（会话 ID 提取、响应订阅、壳页面同步），便于测试。
  */
+import { KEYS, readKey, writeKey, removeKey } from './storage.js';
 
-// ========== 对话 token 按会话缓存 ==========
-const TOKEN_CACHE_KEY = 'cuckoo-token-cache';
-// 按天累计（保留所有历史，供后续统计）
-const TOKEN_DAILY_KEY = 'cuckoo-token-daily';
 // 每日统计口径版本：
 //  v1 = 累加完整 acc 但无限膨胀（错误）
 //  v2 = 累加 delta（跨天会漏算，与预期不符）
 //  v3 = 每天累加"当轮完整 acc"（今天每轮的总量之和，跨天归零）
-const DAILY_VERSION_KEY = 'cuckoo-token-daily-version';
 const DAILY_VERSION = '3';
 
 /** 是否子代理窗口（由 bridge 注入）。子代理共享父窗口 localStorage，不应参与 token 统计 */
@@ -25,9 +21,9 @@ let serverTokenUsage: any = null;
 /** 旧口径数据迁移：v1 的今日值是"完整 acc 之和"（会膨胀），不可比，检测到就清空重来 */
 function migrateDailyVersion(): void {
   try {
-    if (localStorage.getItem(DAILY_VERSION_KEY) !== DAILY_VERSION) {
-      localStorage.removeItem(TOKEN_DAILY_KEY);
-      localStorage.setItem(DAILY_VERSION_KEY, DAILY_VERSION);
+    if (localStorage.getItem(KEYS.tokenDailyVersion) !== DAILY_VERSION) {
+      removeKey(KEYS.tokenDaily);
+      localStorage.setItem(KEYS.tokenDailyVersion, DAILY_VERSION);
     }
   } catch (_) {}
 }
@@ -45,12 +41,11 @@ function todayKey(): string {
 function addDailyToken(delta: number): void {
   if (typeof delta !== 'number' || delta <= 0) return;
   try {
-    const raw = localStorage.getItem(TOKEN_DAILY_KEY);
-    const obj = raw ? JSON.parse(raw) : {};
+    const obj: any = readKey(KEYS.tokenDaily, {});
     const map = (obj && typeof obj === 'object') ? obj : {};
     const k = todayKey();
     map[k] = (typeof map[k] === 'number' ? map[k] : 0) + delta;
-    localStorage.setItem(TOKEN_DAILY_KEY, JSON.stringify(map));
+    writeKey(KEYS.tokenDaily, map);
   } catch (_) {}
 }
 
@@ -58,8 +53,7 @@ function addDailyToken(delta: number): void {
 function getTodayCumulative(): number {
   try {
     migrateDailyVersion();
-    const raw = localStorage.getItem(TOKEN_DAILY_KEY);
-    const obj = raw ? JSON.parse(raw) : {};
+    const obj: any = readKey(KEYS.tokenDaily, {});
     const v = obj ? obj[todayKey()] : 0;
     return typeof v === 'number' ? v : 0;
   } catch (_) {
@@ -79,13 +73,8 @@ interface SessionToken {
 
 /** 读整个 token 缓存（sessionId → SessionToken） */
 function readTokenCache(): Record<string, SessionToken> {
-  try {
-    const raw = localStorage.getItem(TOKEN_CACHE_KEY);
-    const obj = raw ? JSON.parse(raw) : {};
-    return (obj && typeof obj === 'object') ? obj : {};
-  } catch (_) {
-    return {};
-  }
+  const obj: any = readKey(KEYS.tokenCache, {});
+  return (obj && typeof obj === 'object') ? obj : {};
 }
 
 /**
@@ -118,7 +107,7 @@ function saveTokenForSession(sessionId: string, acc: number): void {
     if (keys.length > 200) {
       for (const k of keys.slice(0, keys.length - 200)) delete cache[k];
     }
-    localStorage.setItem(TOKEN_CACHE_KEY, JSON.stringify(cache));
+    writeKey(KEYS.tokenCache, cache);
   } catch (_) {}
 }
 
