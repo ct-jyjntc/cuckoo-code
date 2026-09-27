@@ -251,6 +251,22 @@ describe('任务面板：历史条目交互', () => {
     );
   });
 
+  it('长命令：列表截断显示，详情展开显示全文', async () => {
+    const longCmd = '[JS] ' + 'b'.repeat(100);
+    historyEntries = [entry('cur'), entry('h', { command: longCmd })];
+    openTaskPanel();
+    await flush();
+
+    const head = taskList().querySelector('.task-item-command');
+    assert.ok(head.textContent.endsWith('...'));
+    assert.ok(head.textContent.length < longCmd.length);
+
+    taskList().querySelector('.task-item').click();
+    const detail = taskList().querySelector('.task-item-detail');
+    assert.strictEqual(detail.hidden, false);
+    assert.strictEqual(detail.querySelector('.task-detail-command').textContent, longCmd);
+  });
+
   it('「清空」按钮：调用 clearToolHistory 并清空界面', async () => {
     historyEntries = [entry('a'), entry('b')];
     openTaskPanel();

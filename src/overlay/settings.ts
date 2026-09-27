@@ -12,7 +12,7 @@
  * 另负责两件与存储介质相关的事：
  *  1) 旧数据迁移：检测页面 localStorage 中的旧版 cuckoo-* 设置键，
  *     解析后经 migrateSettings 交给主进程（主进程按 migrated 标记只应用一次），
- *     然后删除旧键。fab 位置、token 统计、ds-headers 等非设置键不动；
+ *     然后删除旧键。token 统计、ds-headers 等非设置键不动；
  *     'cuckoo-xhr-idle-timeout' 也跳过删除——它是 hook 镜像键，由镜像覆盖写，
  *     避免"删旧键 → 镜像写入"之间的 IPC 间隙让新启动的流读到缺省值。
  *  2) hook 镜像：主世界注入的 hook（providers/hooks/deepseek.ts）无法 import 本模块，
@@ -119,7 +119,7 @@ function collectLegacyPatch(): Partial<Settings> | null {
 }
 
 /**
- * 删除旧版设置键（迁移后调用；非设置键如 fabPos/token/ds-headers 不动）。
+ * 删除旧版设置键（迁移后调用；非设置键如 token 统计/ds-headers 不动）。
  * 跳过 KEYS.xhrIdleTimeout：它是 hook 镜像键，留着旧值直到镜像覆盖写，
  * 避免删除后到镜像写入前的间隙让 hook 读到缺省值。
  */

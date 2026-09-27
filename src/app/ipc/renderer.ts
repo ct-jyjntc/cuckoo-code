@@ -90,9 +90,10 @@ function registerRendererIpc(): void {
     if (!ctx || !ctx.win || ctx.win.isDestroyed() || !entry || !entry.id) {
       return { success: false };
     }
-    toolActivity.upsertEntry(ctx.win.id, entry);
+    const normalized = toolActivity.upsertEntry(ctx.win.id, entry);
     try {
-      ctx.win.webContents.send('shell-tool-activity', entry);
+      // 转发归一化副本（与历史存储一致），不转发渲染进程原始对象
+      if (normalized) ctx.win.webContents.send('shell-tool-activity', normalized);
     } catch (_) { /* 壳页面未就绪时历史已存，面板打开时会拉全量 */ }
     return { success: true };
   });

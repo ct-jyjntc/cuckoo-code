@@ -21,9 +21,9 @@ const MAX_ENTRIES = 50;
 
 const histories = new Map<number, ToolActivityEntry[]>();
 
-/** 同 id 覆盖更新，新条目插入最前，超出上限裁掉最旧 */
-function upsertEntry(windowId: number, entry: ToolActivityEntry): void {
-  if (!entry || typeof entry.id !== 'string' || !entry.id) return;
+/** 同 id 覆盖更新，新条目插入最前，超出上限裁掉最旧；返回归一化副本（供 IPC 层转发壳页面），非法条目返回 null */
+function upsertEntry(windowId: number, entry: ToolActivityEntry): ToolActivityEntry | null {
+  if (!entry || typeof entry.id !== 'string' || !entry.id) return null;
   let list = histories.get(windowId);
   if (!list) {
     list = [];
@@ -42,6 +42,7 @@ function upsertEntry(windowId: number, entry: ToolActivityEntry): void {
   if (idx >= 0) list[idx] = copy;
   else list.unshift(copy);
   if (list.length > MAX_ENTRIES) list.length = MAX_ENTRIES;
+  return copy;
 }
 
 /** 取窗口历史（新→旧），返回副本避免外部改到内部状态 */

@@ -30,24 +30,24 @@ test('KEYS 值全部是 cuckoo- 前缀的非空字符串', () => {
 });
 
 test('readKey 键不存在时返回调用方给的默认值', () => {
-  assert.strictEqual(storage.readKey(storage.KEYS.fabPos, 'dft'), 'dft');
+  assert.strictEqual(storage.readKey(storage.KEYS.tokenCache, 'dft'), 'dft');
   assert.deepStrictEqual(storage.readKey(storage.KEYS.tokenCache, { a: 1 }), { a: 1 });
 });
 
 test('readKey 遇到坏 JSON 返回默认值而不是抛错', () => {
-  localStorage.setItem(storage.KEYS.fabPos, '{broken json');
-  assert.deepStrictEqual(storage.readKey(storage.KEYS.fabPos, { left: 0, top: 0 }), { left: 0, top: 0 });
+  localStorage.setItem(storage.KEYS.tokenCache, '{broken json');
+  assert.deepStrictEqual(storage.readKey(storage.KEYS.tokenCache, { a: 1 }), { a: 1 });
 });
 
 test('readKey 解析合法 JSON', () => {
-  localStorage.setItem(storage.KEYS.fabPos, JSON.stringify({ left: 10, top: 20 }));
-  assert.deepStrictEqual(storage.readKey(storage.KEYS.fabPos, null), { left: 10, top: 20 });
+  localStorage.setItem(storage.KEYS.tokenCache, JSON.stringify({ s1: 10 }));
+  assert.deepStrictEqual(storage.readKey(storage.KEYS.tokenCache, null), { s1: 10 });
 });
 
 test('writeKey JSON 序列化，readKey 可读回', () => {
-  storage.writeKey(storage.KEYS.fabPos, { left: 3, top: 4 });
-  assert.strictEqual(localStorage.getItem(storage.KEYS.fabPos), '{"left":3,"top":4}');
-  assert.deepStrictEqual(storage.readKey(storage.KEYS.fabPos, null), { left: 3, top: 4 });
+  storage.writeKey(storage.KEYS.tokenCache, { s1: 3 });
+  assert.strictEqual(localStorage.getItem(storage.KEYS.tokenCache), '{"s1":3}');
+  assert.deepStrictEqual(storage.readKey(storage.KEYS.tokenCache, null), { s1: 3 });
 });
 
 test('removeKey 删除键且不抛错', () => {
@@ -67,7 +67,7 @@ test('settings 的 reset 走主进程 settings.json，不再触碰任何 localSt
       return { success: true, settings: { ...DEFAULT_SETTINGS } };
     },
   };
-  const { resetSettings } = await import('../../src/overlay/panels/settings.js');
+  const { resetSettings } = await import('../../src/overlay/settings.js');
   // 所有 KEYS 都写入值（含残留的旧版设置键）
   for (const v of Object.values(storage.KEYS)) localStorage.setItem(v, 'x');
   await resetSettings();

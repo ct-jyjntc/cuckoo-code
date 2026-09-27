@@ -75,8 +75,8 @@ test('有旧键：解析后经 migrateSettings 迁移，旧键删除，非设置
   localStorage.setItem(KEYS.autoCompactThreshold, '50');
   localStorage.setItem(KEYS.sendDelayMin, '111');
   localStorage.setItem(KEYS.attachDelayMax, '2222');
-  // 非设置键：fab 位置、token 统计、ds-headers 不动
-  localStorage.setItem(KEYS.fabPos, '{"left":1,"top":2}');
+  // 非设置键：fab 位置（遗留键，T8 起不再使用但迁移不应清它）、token 统计、ds-headers 不动
+  localStorage.setItem('cuckoo-fab-pos', '{"left":1,"top":2}');
   localStorage.setItem(KEYS.tokenCache, '{}');
   localStorage.setItem('cuckoo-ds-headers', '{}');
 
@@ -100,7 +100,7 @@ test('有旧键：解析后经 migrateSettings 迁移，旧键删除，非设置
   assert.strictEqual(localStorage.getItem(KEYS.autoCompactEnabled), null);
   assert.strictEqual(localStorage.getItem(KEYS.attachDelayMax), null);
   // 非设置键保留；镜像键重新写入（新值来自主进程默认 300000）
-  assert.strictEqual(localStorage.getItem(KEYS.fabPos), '{"left":1,"top":2}');
+  assert.strictEqual(localStorage.getItem('cuckoo-fab-pos'), '{"left":1,"top":2}');
   assert.strictEqual(localStorage.getItem(KEYS.tokenCache), '{}');
   assert.strictEqual(localStorage.getItem('cuckoo-ds-headers'), '{}');
   assert.strictEqual(localStorage.getItem(KEYS.xhrIdleTimeout), '300000');

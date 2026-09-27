@@ -54,11 +54,6 @@ function reports() {
   return window.electronAPI.reportToolActivity.mock.calls.map((c) => c[0]);
 }
 
-test('notifyJsScriptDetected 不上报（没有 callId），不报错', () => {
-  executor.notifyJsScriptDetected('await bash("x")');
-  assert.strictEqual(window.electronAPI.reportToolActivity.mock.calls.length, 0);
-});
-
 test('handleJsToolScript 成功返回结果', async () => {
   window.electronAPI.executeJs = vi.fn(async () => ({ success: true, output: '输出内容' }));
   const r = await executor.handleJsToolScript('const x = 1;');
@@ -80,22 +75,20 @@ test('handleJsToolScript 上报 running → done 两阶段（同 id）', async (
   assert.strictEqual(entries[1].output, 'ok');
 });
 
-test('running 条目的 command 带 [JS] 前缀并截断到 60', async () => {
+test('上报条目的 command 存完整脚本（截断由 shell 列表显示层负责）', async () => {
   window.electronAPI.executeJs = vi.fn(async () => ({ success: true, output: '' }));
   const longCode = 'a'.repeat(100);
   await executor.handleJsToolScript(longCode);
   const entries = reports();
-  assert.ok(entries[0].command.startsWith('[JS] '));
-  assert.ok(entries[0].command.length <= 5 + 60 + 3);
-  assert.ok(entries[0].command.endsWith('...'));
+  assert.strictEqual(entries[0].command, '[JS] ' + longCode);
+  assert.strictEqual(entries[1].command, '[JS] ' + longCode);
 });
 
-test('多行脚本 command 只取首行', async () => {
+test('多行脚本 command 存全文（含换行）', async () => {
   window.electronAPI.executeJs = vi.fn(async () => ({ success: true }));
   await executor.handleJsToolScript('first line\nsecond line');
   const entries = reports();
-  assert.strictEqual(entries[0].command.includes('second line'), false);
-  assert.ok(entries[0].command.includes('first line'));
+  assert.strictEqual(entries[0].command, '[JS] first line\nsecond line');
 });
 
 test('handleJsToolScript 失败：done 条目 success=false 且 output 为错误', async () => {

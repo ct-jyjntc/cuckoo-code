@@ -12,8 +12,6 @@
  * 其内部的 'cuckoo-xhr-idle-timeout' / 'cuckoo-ds-headers' 字面量须与这里保持一致。
  */
 const KEYS = {
-  /** 悬浮球位置（JSON: {left, top}） */
-  fabPos: 'cuckoo-fab-pos',
   /** 发送延迟（毫秒） */
   sendDelayMin: 'cuckoo-send-delay-min',
   sendDelayMax: 'cuckoo-send-delay-max',

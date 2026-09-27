@@ -1,10 +1,12 @@
 /**
- * 自动压缩上下文（T7 从 events.ts 拆出）
- * 负责：配置读写（主进程 settings.json，经 overlay/settings.ts 缓存）、
- * 设置区 UI 同步、收到回复后按阈值触发压缩。
+ * 自动压缩上下文（运行态）
+ * 设置 UI 已迁往 shell 侧栏（Task 6/8），本模块只管运行态：
+ * 配置来自 overlay/settings.ts 缓存（主进程 settings.json），
+ * 收到回复后按阈值触发压缩；设置变更（本窗口保存 / 主进程广播）经
+ * onSettingsChanged 同步运行态。
  * deps 显式注入（响应订阅、压缩触发、UI 提示），便于测试。
  */
-import { getCachedSettings, saveSettings, onSettingsChanged } from './settings.js';
+import { getCachedSettings, onSettingsChanged } from './settings.js';
 
 // 配置：是否启用 + 阈值（单位：万 token）
 let autoCompactEnabled = false;
@@ -21,37 +23,13 @@ interface AutoCompactDeps {
   notify(message: string, durationMs?: number): void;
 }
 
-/** 从设置缓存读取自动压缩配置并同步到 UI */
+/** 从设置缓存读取自动压缩配置到运行态 */
 function loadAutoCompactConfig(): void {
   const s = getCachedSettings();
   autoCompactEnabled = s.autoCompactEnabled;
   if (Number.isFinite(s.autoCompactThreshold) && s.autoCompactThreshold > 0) {
     autoCompactThresholdWan = s.autoCompactThreshold;
   }
-  const enEl = document.getElementById('cuckoo-auto-compact-enabled');
-  const thEl = document.getElementById('cuckoo-auto-compact-threshold');
-  if (enEl) (enEl as any).checked = autoCompactEnabled;
-  if (thEl) (thEl as any).value = autoCompactThresholdWan;
-}
-
-/** 保存自动压缩配置（主进程设置；成功后缓存已由 overlay/settings.ts 刷新） */
-async function saveAutoCompactConfig(notify: AutoCompactDeps['notify']): Promise<void> {
-  const enEl = document.getElementById('cuckoo-auto-compact-enabled');
-  const thEl = document.getElementById('cuckoo-auto-compact-threshold');
-  const enabled = !!(enEl && (enEl as any).checked);
-  let th = thEl ? parseFloat((thEl as any).value) : 80;
-  if (!Number.isFinite(th) || th <= 0) {
-    notify('阈值需为正数（万）', 3000);
-    return;
-  }
-  const ok = await saveSettings({ autoCompactEnabled: enabled, autoCompactThreshold: th });
-  if (!ok) {
-    notify('设置保存失败', 3000);
-    return;
-  }
-  autoCompactEnabled = enabled;
-  autoCompactThresholdWan = th;
-  notify('自动压缩设置已保存：' + (enabled ? '开启，阈值 ' + th + ' 万' : '关闭'), 2500);
 }
 
 /** 检查是否触发自动压缩（数据源：服务端 tokenUsage.accumulatedTokens） */
@@ -71,15 +49,13 @@ function checkAutoCompact(deps: AutoCompactDeps, server: any): void {
 }
 
 /**
- * 初始化自动压缩：加载配置、绑定保存按钮、订阅回复事件做阈值检查。
+ * 初始化自动压缩：加载配置、订阅回复事件做阈值检查。
  * 仅在收到成功回复事件时检查，避免失败/停止时因旧 token 值反复触发压缩。
- * 订阅设置变更（本窗口保存 / 主进程广播）：保持运行态与 UI 不分裂。
+ * 订阅设置变更（本窗口保存 / 主进程广播）：保持运行态与 shell 设置不分裂。
  */
 function initAutoCompact(deps: AutoCompactDeps): void {
   loadAutoCompactConfig();
   onSettingsChanged(() => loadAutoCompactConfig());
-  const saveBtn = document.getElementById('cuckoo-auto-compact-save');
-  saveBtn?.addEventListener('click', () => { void saveAutoCompactConfig(deps.notify); });
   deps.onResponse?.((_text: string, meta: any) => {
     checkAutoCompact(deps, (meta && meta.tokenUsage) || null);
   });

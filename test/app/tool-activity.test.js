@@ -100,3 +100,19 @@ test('非法字段归一化（非字符串 command/output、缺 timestamp）', (
   assert.strictEqual(list[0].status, 'done');
   assert.strictEqual(typeof list[0].timestamp, 'number');
 });
+
+test('upsertEntry 返回归一化副本（供 IPC 层转发壳页面，而非转发原始上报）', () => {
+  const copy = store.upsertEntry(1, { id: 'x', command: 42, output: null, status: 'weird' });
+  assert.ok(copy);
+  assert.strictEqual(copy.command, '');
+  assert.strictEqual(copy.output, '');
+  assert.strictEqual(copy.status, 'done');
+  assert.strictEqual(copy.canceled, false);
+  assert.strictEqual(typeof copy.timestamp, 'number');
+  assert.deepStrictEqual(store.getHistory(1)[0], copy);
+});
+
+test('upsertEntry 对无 id 条目返回 null', () => {
+  assert.strictEqual(store.upsertEntry(1, null), null);
+  assert.strictEqual(store.upsertEntry(1, {}), null);
+});
