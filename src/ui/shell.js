@@ -67,7 +67,8 @@ export function initShell(api, doc, hooks) {
   const panel = doc.getElementById('side-panel');
   const panelTitle = doc.getElementById('panel-title');
 
-  function setActivePanel(panelId) {
+  function setActivePanel(panelId, opts) {
+    const quiet = !!(opts && opts.quiet);
     activePanel = panelId;
     const buttons = doc.querySelectorAll('.rail-btn');
     for (const btn of buttons) {
@@ -76,7 +77,8 @@ export function initShell(api, doc, hooks) {
     panel.hidden = !panelId;
     if (panelId) panelTitle.textContent = PANEL_NAMES[panelId] || '';
     if (hooks.onPanelChange) hooks.onPanelChange(panelId);
-    if (api.setPanelOpen) api.setPanelOpen(panelId);
+    // quiet：主进程回放面板状态（壳重载后恢复），状态已一致，不再回传
+    if (!quiet && api.setPanelOpen) api.setPanelOpen(panelId);
   }
 
   const railButtons = doc.querySelectorAll('.rail-btn[data-panel]');
@@ -96,6 +98,31 @@ export function initShell(api, doc, hooks) {
     api.onTokenUpdated(function (data) {
       if (!data) return;
       if (tokenValue) tokenValue.textContent = formatTokenCount(data.context);
+    });
+  }
+
+  // 点击徽章：展开「项目」面板并滚动到用量区（滚动细节由 panels.js 的 onRevealUsage hook 负责）
+  const tokenBadge = doc.getElementById('token-badge');
+  if (tokenBadge) {
+    tokenBadge.addEventListener('click', function () {
+      setActivePanel('project');
+      if (hooks.onRevealUsage) {
+        hooks.onRevealUsage();
+      } else {
+        const usage = doc.getElementById('shell-usage-section');
+        if (usage && typeof usage.scrollIntoView === 'function') {
+          usage.scrollIntoView({ block: 'start' });
+        }
+      }
+    });
+  }
+
+  // 主进程回放面板状态（壳页面 did-finish-load 后恢复，修复壳重载状态脱钩）：
+  // 主进程已有该状态，quiet 回写避免再次触发 setPanelOpen/relayout
+  if (api.onPanelRestore) {
+    api.onPanelRestore(function (data) {
+      const panelId = data && data.panelId ? data.panelId : null;
+      setActivePanel(panelId, { quiet: true });
     });
   }
 

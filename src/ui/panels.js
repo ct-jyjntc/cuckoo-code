@@ -1,11 +1,14 @@
 /**
  * shell 侧栏面板内容（ES Module，供 happy-dom 测试导入）。
- * 承载「会话」「窗口」「MCP」「设置」四个面板，逻辑对照迁移自 overlay 侧
- * session-list.ts、panels/window-manager.ts、panels/mcp-manager.ts、panels/settings.ts（功能等价）。
- * shell 是 file:// 自有页面，但会话 id / profile 名等外部数据
+ * 承载「会话」「窗口」「MCP」「设置」「项目」五个面板，逻辑对照迁移自 overlay 侧
+ * session-list.ts、panels/window-manager.ts、panels/mcp-manager.ts、panels/settings.ts、
+ * project-dir.ts、auto-compact.ts（功能等价）。
+ * shell 是 file:// 自有页面，但会话 id / profile 名 / 项目目录等外部数据
  * 一律走 textContent / dataset，不拼 innerHTML。
  */
 'use strict';
+
+import { formatTokenCount } from './shell.js';
 
 /** 面板内轻提示（替代 overlay 的 showToast） */
 function showPanelToast(doc, text, ms) {
@@ -652,6 +655,253 @@ export function initPanels(api, doc) {
     btnSkillsSend.addEventListener('click', function () { handleSendSkills(); });
   }
 
+  // ===== 项目面板（逻辑对照迁移自 overlay project-dir.ts / events.ts / auto-compact.ts） =====
+
+  const dirPathEl = doc.getElementById('shell-project-dir-path');
+
+  function renderProjectDir(dirPath) {
+    if (dirPathEl) dirPathEl.textContent = dirPath || '未选择';
+  }
+
+  /** 打开面板时拉取当前项目目录（shell 重载后事件不重放，需主动查） */
+  async function loadProjectDir() {
+    if (!api.getProjectDir) return;
+    try {
+      const res = await api.getProjectDir();
+      if (res && res.success) renderProjectDir(res.projectDir || null);
+    } catch (err) {
+      console.error('[Cuckoo Shell] 获取项目目录失败:', err);
+    }
+  }
+
+  // 主进程转发 AI 页面的 project-dir-updated：更新显示并刷新会话列表（目录换了会话集也变）
+  if (api.onProjectDirUpdated) {
+    api.onProjectDirUpdated(function (dirPath) {
+      renderProjectDir(dirPath || null);
+      renderSessionList();
+    });
+  }
+
+  /** 初始化项目（按钮 busy 态对照 overlay handleInitProject） */
+  const btnInitProject = doc.getElementById('shell-btn-init-project');
+  if (btnInitProject) {
+    btnInitProject.addEventListener('click', async function () {
+      if (!api.initProject) {
+        showPanelToast(doc, 'API 不可用', 3000);
+        return;
+      }
+      btnInitProject.disabled = true;
+      const prevText = btnInitProject.textContent;
+      btnInitProject.textContent = '初始化中...';
+      try {
+        const result = await api.initProject();
+        if (result && !result.success) {
+          showPanelToast(doc, result.message || '初始化失败', 3000);
+        }
+      } catch (err) {
+        showPanelToast(doc, '初始化失败: ' + (err && err.message ? err.message : err), 3000);
+      } finally {
+        btnInitProject.disabled = false;
+        btnInitProject.textContent = prevText;
+      }
+    });
+  }
+
+  /** 修改目录：只更新目录映射，不重新发送初始提示（updateProjectDir = skipPrompt） */
+  const btnChangeDir = doc.getElementById('shell-btn-change-dir');
+  if (btnChangeDir) {
+    btnChangeDir.addEventListener('click', async function () {
+      if (!api.updateProjectDir) {
+        showPanelToast(doc, 'API 不可用', 3000);
+        return;
+      }
+      try {
+        const result = await api.updateProjectDir();
+        // 成功：主进程会推 shell-project-dir-updated 更新显示
+        if (result && !result.success) {
+          showPanelToast(doc, result.message || '修改目录失败', 3000);
+        }
+      } catch (err) {
+        showPanelToast(doc, '修改目录失败: ' + (err && err.message ? err.message : err), 3000);
+      }
+    });
+  }
+
+  /** 生成项目说明（文案对照 overlay panels/window-manager.ts handleGenerateDoc） */
+  const btnGenDoc = doc.getElementById('shell-btn-gen-doc');
+  if (btnGenDoc) {
+    btnGenDoc.addEventListener('click', async function () {
+      if (!api.sendToChat) {
+        showPanelToast(doc, '发送失败：未找到输入框', 3000);
+        return;
+      }
+      try {
+        const res = await api.sendToChat(
+          '根据当前项目生成一个类似 claude.md 的项目说明文件，并将文件放到当前项目 .cuckoo/CUCKOO.md',
+          '生成文档',
+          300
+        );
+        if (res && !res.success) {
+          showPanelToast(doc, '发送失败：未找到输入框', 3000);
+        }
+      } catch (err) {
+        showPanelToast(doc, '发送失败: ' + (err && err.message ? err.message : err), 3000);
+      }
+    });
+  }
+
+  /** 催促继续（文案对照 overlay events.ts handleManualParseDispatch） */
+  const btnNudge = doc.getElementById('shell-btn-nudge');
+  if (btnNudge) {
+    btnNudge.addEventListener('click', async function () {
+      if (!api.sendToChat) {
+        showPanelToast(doc, '发送失败：未找到输入框', 3000);
+        return;
+      }
+      try {
+        const res = await api.sendToChat('刚才卡住了请继续 爱你哦', '继续', 300);
+        if (res && !res.success) {
+          showPanelToast(doc, '发送失败：未找到输入框', 3000);
+          return;
+        }
+        showPanelToast(doc, '已发送：继续', 2500);
+      } catch (err) {
+        showPanelToast(doc, '发送失败: ' + (err && err.message ? err.message : err), 3000);
+      }
+    });
+  }
+
+  // ===== Token 用量（五项明细：当前上下文/对话累计/窗口累计/今日累计/系统总累计） =====
+
+  let lastTokenUsage = { context: 0, cumulative: 0, windowCumulative: 0, todayCumulative: 0 };
+  let systemTotal = 0;
+
+  function setUsageText(id, n) {
+    const node = doc.getElementById(id);
+    if (node) node.textContent = formatTokenCount(typeof n === 'number' ? n : 0);
+  }
+
+  function renderUsage() {
+    setUsageText('shell-usage-context', lastTokenUsage.context);
+    setUsageText('shell-usage-cumulative', lastTokenUsage.cumulative);
+    setUsageText('shell-usage-window', lastTokenUsage.windowCumulative);
+    setUsageText('shell-usage-today', lastTokenUsage.todayCumulative);
+    setUsageText('shell-usage-system', systemTotal);
+  }
+
+  if (api.onTokenUpdated) {
+    api.onTokenUpdated(function (data) {
+      if (!data) return;
+      lastTokenUsage = {
+        context: typeof data.context === 'number' ? data.context : 0,
+        cumulative: typeof data.cumulative === 'number' ? data.cumulative : 0,
+        windowCumulative: typeof data.windowCumulative === 'number' ? data.windowCumulative : 0,
+        todayCumulative: typeof data.todayCumulative === 'number' ? data.todayCumulative : 0,
+      };
+      renderUsage();
+    });
+  }
+  if (api.onTotalUpdated) {
+    api.onTotalUpdated(function (data) {
+      if (!data) return;
+      systemTotal = typeof data.systemTotal === 'number' ? data.systemTotal : 0;
+      renderUsage();
+    });
+  }
+
+  /** 打开面板时主动拉一次系统总累计（广播可能发生在面板打开前） */
+  async function loadSystemTotal() {
+    if (!api.getSystemTotal) return;
+    try {
+      const res = await api.getSystemTotal();
+      if (res && res.success && typeof res.systemTotal === 'number') {
+        systemTotal = res.systemTotal;
+        renderUsage();
+      }
+    } catch (err) {
+      console.error('[Cuckoo Shell] 获取系统总累计失败:', err);
+    }
+  }
+
+  /** 压缩上下文：relay 到 AI 页面执行 runCompaction（清 IDB + 刷新流程在页面侧） */
+  const btnCompact = doc.getElementById('shell-btn-compact');
+  if (btnCompact) {
+    btnCompact.addEventListener('click', async function () {
+      if (!api.compact) {
+        showPanelToast(doc, 'API 不可用', 3000);
+        return;
+      }
+      try {
+        const res = await api.compact();
+        if (res && res.success) {
+          showPanelToast(doc, '已开始压缩流程（在聊天页面执行）', 3000);
+        } else {
+          showPanelToast(doc, '压缩失败: ' + ((res && res.error) || '未知错误'), 3000);
+        }
+      } catch (err) {
+        showPanelToast(doc, '压缩失败: ' + (err && err.message ? err.message : err), 3000);
+      }
+    });
+  }
+
+  // ===== 自动压缩设置（读写走 settings IPC；reset 排除语义由主进程 settings-store 保证） =====
+
+  async function loadAutoCompactForm() {
+    if (!api.getSettings) {
+      showPanelToast(doc, 'API 不可用', 3000);
+      return;
+    }
+    try {
+      const s = await api.getSettings();
+      if (!s || typeof s !== 'object') return;
+      const enEl = doc.getElementById('shell-auto-compact-enabled');
+      const thEl = doc.getElementById('shell-auto-compact-threshold');
+      if (enEl) enEl.checked = !!s.autoCompactEnabled;
+      if (thEl) thEl.value = String(s.autoCompactThreshold);
+    } catch (err) {
+      console.error('[Cuckoo Shell] 加载自动压缩设置失败:', err);
+    }
+  }
+
+  /** 保存自动压缩设置（校验与提示文案对照 overlay auto-compact.ts） */
+  async function handleAutoCompactSave() {
+    const enEl = doc.getElementById('shell-auto-compact-enabled');
+    const thEl = doc.getElementById('shell-auto-compact-threshold');
+    const enabled = !!(enEl && enEl.checked);
+    const th = thEl ? parseFloat(thEl.value) : NaN;
+    if (!Number.isFinite(th) || th <= 0) {
+      showPanelToast(doc, '阈值需为正数（万）', 3000);
+      return;
+    }
+    if (!api.saveSettings) {
+      showPanelToast(doc, '设置保存失败', 3000);
+      return;
+    }
+    try {
+      const result = await api.saveSettings({ autoCompactEnabled: enabled, autoCompactThreshold: th });
+      if (!result || !result.settings) {
+        showPanelToast(doc, '设置保存失败', 3000);
+        return;
+      }
+      showPanelToast(doc, '自动压缩设置已保存：' + (enabled ? '开启，阈值 ' + th + ' 万' : '关闭'), 2500);
+    } catch {
+      showPanelToast(doc, '设置保存失败', 3000);
+    }
+  }
+
+  const btnAutoCompactSave = doc.getElementById('shell-btn-auto-compact-save');
+  if (btnAutoCompactSave) {
+    btnAutoCompactSave.addEventListener('click', function () { handleAutoCompactSave(); });
+  }
+
+  /** 滚动到用量区（token 徽章点击展开项目面板后调用；shell.html 注入到 initShell hooks） */
+  function revealUsage() {
+    const usage = doc.getElementById('shell-usage-section');
+    if (usage && typeof usage.scrollIntoView === 'function') {
+      usage.scrollIntoView({ block: 'start' });
+    }
+  }
+
   // ===== 面板切换：显隐内容容器，按需渲染 =====
   function handlePanelChange(panelId) {
     const contents = doc.querySelectorAll('.panel-content');
@@ -661,6 +911,12 @@ export function initPanels(api, doc) {
     if (panelId === 'chat') renderSessionList();
     if (panelId === 'window') renderWindowList();
     if (panelId === 'settings') loadSettingsForm();
+    if (panelId === 'project') {
+      loadProjectDir();
+      loadAutoCompactForm();
+      loadSystemTotal();
+      renderUsage();
+    }
     if (panelId === 'mcp') {
       renderMcpList();
       loadMcpConfigToJson();
@@ -674,5 +930,6 @@ export function initPanels(api, doc) {
     renderMcpList: renderMcpList,
     loadMcpConfigToJson: loadMcpConfigToJson,
     loadSettingsForm: loadSettingsForm,
+    revealUsage: revealUsage,
   };
 }

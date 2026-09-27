@@ -142,6 +142,13 @@ function createWindow(profile: any) {
   mainWindow.loadFile(resolveSrc('ui/shell.html'));
   mainWindow.webContents.on('did-finish-load', () => {
     pushUrlState(view);
+    // 回放面板状态 + 项目目录：壳页面重载后其 UI 状态丢失，需与主进程 ctx.panelId 重新对齐
+    try {
+      const ctx = windowState.getWindowContext(mainWindow.id);
+      mainWindow.webContents.send('shell-panel-restore', { panelId: (ctx && ctx.panelId) || null });
+      const dir = (ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir) || null;
+      mainWindow.webContents.send('shell-project-dir-updated', dir);
+    } catch (_) {}
   });
 
   // 保存 session 引用（窗口销毁后 webContents 不可访问）

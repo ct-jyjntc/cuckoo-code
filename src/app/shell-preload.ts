@@ -51,6 +51,21 @@ const shellAPI = {
   // 壳页面 → 主进程 → AI 页面 view → bridge preload 的 sendToChat
   sendToChat: (msg: string, tag?: string, delayMs?: number) =>
     ipcRenderer.invoke('shell-send-to-chat', { msg, tag, delayMs }),
+  // ===== 项目面板 =====
+  // init-project / updateProjectDir 的 handler 用 event.sender 反查窗口，shell webContents 可被命中
+  initProject: () => ipcRenderer.invoke('init-project', {}),
+  updateProjectDir: () => ipcRenderer.invoke('init-project', { skipPrompt: true }),
+  getProjectDir: () => ipcRenderer.invoke('get-project-dir'),
+  // 压缩上下文：relay 到 AI 页面执行 runCompaction（清 IDB + 刷新必须在页面侧做）
+  compact: () => ipcRenderer.invoke('shell-compact'),
+  // 主进程转发的目录更新（AI 页面 project-dir-updated 的壳侧副本）
+  onProjectDirUpdated: (cb: (dirPath: string | null) => void) => {
+    ipcRenderer.on('shell-project-dir-updated', (_e: any, dirPath: any) => cb(dirPath || null));
+  },
+  // 壳页面 did-finish-load 后主进程回放面板状态（修复壳重载后面板状态脱钩）
+  onPanelRestore: (cb: (data: any) => void) => {
+    ipcRenderer.on('shell-panel-restore', (_e: any, data: any) => cb(data));
+  },
 };
 
 try {

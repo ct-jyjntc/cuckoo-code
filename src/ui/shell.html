@@ -53,8 +53,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
         </button>
         <div class="divider"></div>
-        <!-- TODO(ui-redesign): 徽章点击后跳转「项目」面板的 token 明细，后续任务实现 -->
-        <button class="token-badge" id="token-badge" title="对话上下文：本会话当前占用的 token 总量">
+        <!-- 点击徽章：展开「项目」面板并滚动到用量区（shell.js 接线） -->
+        <button class="token-badge" id="token-badge" title="对话上下文：本会话当前占用的 token 总量（点击查看用量明细）">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span class="token-value" id="token-value">0</span>
         </button>
@@ -188,7 +188,69 @@
                 </div>
               </div>
             </div>
-            <div class="panel-content" data-panel-content="project" hidden></div>
+            <!-- 项目面板：项目目录 + 初始化/文档/催促 + token 用量 + 压缩/自动压缩 -->
+            <div class="panel-content" data-panel-content="project" hidden>
+              <div class="settings-form">
+                <div class="settings-section">
+                  <div class="settings-section-title">项目目录</div>
+                  <div class="settings-row settings-row-col">
+                    <span class="project-dir-path" id="shell-project-dir-path">未选择</span>
+                  </div>
+                  <div class="settings-row">
+                    <button class="panel-btn" id="shell-btn-init-project">初始化项目</button>
+                    <button class="panel-btn" id="shell-btn-change-dir" title="修改项目目录（不重新发送初始提示）">修改目录</button>
+                  </div>
+                </div>
+                <div class="settings-section">
+                  <div class="settings-section-title">更多操作</div>
+                  <div class="settings-row">
+                    <button class="panel-btn" id="shell-btn-gen-doc" title="让 AI 生成项目说明文档 (CUCKOO.md)">生成项目说明</button>
+                    <button class="panel-btn" id="shell-btn-nudge" title="AI 卡住时，点我给 AI 发一句继续">催促继续</button>
+                  </div>
+                </div>
+                <div class="settings-section" id="shell-usage-section">
+                  <div class="settings-section-title">Token 用量</div>
+                  <div class="settings-row">
+                    <span class="settings-label">当前上下文</span>
+                    <span class="usage-value" id="shell-usage-context">0</span>
+                  </div>
+                  <div class="settings-row">
+                    <span class="settings-label">对话累计</span>
+                    <span class="usage-value" id="shell-usage-cumulative">0</span>
+                  </div>
+                  <div class="settings-row">
+                    <span class="settings-label">窗口累计</span>
+                    <span class="usage-value" id="shell-usage-window">0</span>
+                  </div>
+                  <div class="settings-row">
+                    <span class="settings-label">今日累计</span>
+                    <span class="usage-value" id="shell-usage-today">0</span>
+                  </div>
+                  <div class="settings-row">
+                    <span class="settings-label">系统总累计</span>
+                    <span class="usage-value" id="shell-usage-system">0</span>
+                  </div>
+                  <div class="settings-row">
+                    <button class="panel-btn" id="shell-btn-compact" title="压缩上下文：生成摘要并分享最近对话，在新会话继续">压缩上下文</button>
+                  </div>
+                </div>
+                <div class="settings-section">
+                  <div class="settings-section-title">自动压缩</div>
+                  <div class="settings-row">
+                    <label class="settings-label" for="shell-auto-compact-enabled">自动压缩</label>
+                    <input id="shell-auto-compact-enabled" type="checkbox" class="settings-checkbox" />
+                  </div>
+                  <div class="settings-row">
+                    <span class="settings-hint">超过</span>
+                    <input id="shell-auto-compact-threshold" type="number" min="1" max="1000" step="1" class="settings-input" />
+                    <span class="settings-hint">万 tokens 时触发</span>
+                  </div>
+                  <div class="settings-row">
+                    <button class="panel-btn" id="shell-btn-auto-compact-save">保存自动压缩设置</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="panel-toast" id="panel-toast" hidden></div>
         </aside>
@@ -201,7 +263,7 @@
   import { initPanels } from './panels.js';
   const api = window.shellAPI || {};
   const panels = initPanels(api, document);
-  initShell(api, document, { onPanelChange: panels.handlePanelChange });
+  initShell(api, document, { onPanelChange: panels.handlePanelChange, onRevealUsage: panels.revealUsage });
 </script>
 </body>
 </html>

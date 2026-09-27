@@ -147,6 +147,21 @@ function registerShellIpc(): void {
     }
   });
 
+  // 壳页面「压缩上下文」→ relay 到 AI 页面 view：清 IDB + 刷新等流程只能在页面侧执行
+  // （bridge preload 监听 'shell-compact' 后调用 session/compaction.ts 的 runCompaction）
+  ipcMain.handle('shell-compact', async (event: any) => {
+    const view = viewOf(event);
+    if (!view || !view.webContents || view.webContents.isDestroyed()) {
+      return { success: false, error: 'view 不存在' };
+    }
+    try {
+      view.webContents.send('shell-compact');
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // 壳页面图标栏点击：记录该窗口的面板开关状态并重算 view bounds
   // panelId 必须在已知面板集合内，非法值拒绝（null/空 = 收起，放行）
   ipcMain.handle('shell-panel-state', async (event: any, { panelId }: any = {}) => {

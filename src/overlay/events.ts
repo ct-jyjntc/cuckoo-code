@@ -19,6 +19,10 @@ import { initTokenCounter, setIsSubagentWindow } from './token-counter.js';
 import type { TokenCounter } from './token-counter.js';
 import { initAutoCompact } from './auto-compact.js';
 import { getCachedSettings } from './settings.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { ipcRenderer } = require('electron');
 
 // 回调注入（P4.2-A：overlay 不依赖 bridge）
 let hooks: { onInterceptedResponse?: (cb: (text: string, meta: any) => void) => void } = {};
@@ -169,6 +173,13 @@ function bindEvents() {
   bindMcpPanel(sendToChat);
   bindSettingsPanel(sendToChat);
   bindFabAndShortcuts();
+
+  // 壳页面「压缩上下文」按钮经主进程 relay 到本页面：压缩流程（清 IDB + 刷新）只能在页面侧执行
+  try {
+    ipcRenderer.on('shell-compact', () => {
+      void runCompaction(state.currentProjectDir || undefined);
+    });
+  } catch (_) {}
 
   // 启动输入框 token 估算 + 自动压缩检查
   startTokenCounter();

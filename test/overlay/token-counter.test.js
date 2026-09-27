@@ -1,15 +1,15 @@
 // @vitest-environment happy-dom
 'use strict';
 /**
- * token-counter 测试：localStorage 读写、显示刷新、壳页面同步（deps 注入）。
- * localStorage / document 由 happy-dom 提供，每个用例前清空。
+ * token-counter 测试：localStorage 读写、壳页面数据同步（deps 注入）。
+ * UI 改版（Task 6）后 token-counter 只负责数据上报，不再写 overlay DOM
+ * （展示迁至 shell 侧栏「项目」面板）。
+ * localStorage 由 happy-dom 提供，每个用例前清空。
  */
 import { test, beforeEach, afterEach, vi } from 'vitest';
 import assert from 'node:assert';
-import { setupDom } from '../helpers/dom';
 
 let tokenCounter;
-let dom;
 
 function makeDeps(overrides = {}) {
   const shellCalls = [];
@@ -24,16 +24,19 @@ function makeDeps(overrides = {}) {
   return deps;
 }
 
+/** 最近一次同步壳页面的参数 */
+function lastShellCall(deps) {
+  return deps.shellCalls[deps.shellCalls.length - 1];
+}
+
 beforeEach(async () => {
   vi.resetModules();
   localStorage.clear();
-  dom = setupDom('<div id="cuckoo-conv-token-count"></div>');
   tokenCounter = await import('../../src/overlay/token-counter.js');
   tokenCounter.setIsSubagentWindow(false);
 });
 
 afterEach(() => {
-  dom.cleanup();
   vi.useRealTimers();
 });
 
@@ -44,7 +47,7 @@ test('refresh 返回 Promise', () => {
   return p;
 });
 
-test('收到响应后写入会话缓存、更新显示并同步壳页面', async () => {
+test('收到响应后写入会话缓存并同步壳页面', async () => {
   localStorage.setItem('cuckoo-token-daily-version', '3'); // 模拟应用已初始化（版本已迁移）
   const deps = makeDeps();
   const tc = tokenCounter.initTokenCounter(deps);
@@ -54,9 +57,8 @@ test('收到响应后写入会话缓存、更新显示并同步壳页面', async
   const cache = JSON.parse(localStorage.getItem('cuckoo-token-cache'));
   assert.strictEqual(cache.s1.context, 200);
   assert.strictEqual(cache.s1.cumulative, 200);
-  assert.strictEqual(document.getElementById('cuckoo-conv-token-count').textContent, '200');
   // 壳页面同步参数：上下文 + 对话累计 + 窗口累计 + 今日累计
-  assert.deepStrictEqual(deps.shellCalls[deps.shellCalls.length - 1], [200, 200, 200, 200]);
+  assert.deepStrictEqual(lastShellCall(deps), [200, 200, 200, 200]);
 });
 
 test('累计消耗 = 各轮 acc 之和（去重同轮重复事件）', () => {
@@ -83,14 +85,14 @@ test('今日累计随响应累加，跨天归零', () => {
   assert.strictEqual(tokenCounter.getTodayCumulative(), 0);
 });
 
-test('服务端值丢失时仍显示当前会话缓存', async () => {
+test('服务端值丢失时仍上报当前会话缓存', async () => {
   const deps = makeDeps();
   const tc = tokenCounter.initTokenCounter(deps);
   deps.responseCb('', { tokenUsage: { accumulatedTokens: 200 } });
   await tc.refresh();
   deps.responseCb('', {}); // 无 tokenUsage → 服务端值置空
   await tc.refresh();
-  assert.strictEqual(document.getElementById('cuckoo-conv-token-count').textContent, '200');
+  assert.strictEqual(lastShellCall(deps)[0], 200);
 });
 
 test('当前会话无缓存时回退到服务端值', async () => {
@@ -98,15 +100,15 @@ test('当前会话无缓存时回退到服务端值', async () => {
   const tc = tokenCounter.initTokenCounter(deps);
   deps.responseCb('', { tokenUsage: { accumulatedTokens: 500 } });
   await tc.refresh();
-  assert.strictEqual(document.getElementById('cuckoo-conv-token-count').textContent, '500');
+  assert.strictEqual(lastShellCall(deps)[0], 500);
 });
 
-test('过万显示为「x.xx万」', async () => {
+test('过万 token 原值上报（格式化由壳页面负责）', async () => {
   const deps = makeDeps();
   const tc = tokenCounter.initTokenCounter(deps);
   deps.responseCb('', { tokenUsage: { accumulatedTokens: 123456 } });
   await tc.refresh();
-  assert.strictEqual(document.getElementById('cuckoo-conv-token-count').textContent, '12.35万');
+  assert.strictEqual(lastShellCall(deps)[0], 123456);
 });
 
 test('旧口径版本触发迁移清空', () => {
@@ -133,5 +135,4 @@ test('updateShellTokenUsage 抛错不影响 refresh 完成', async () => {
   const tc = tokenCounter.initTokenCounter(deps);
   deps.responseCb('', { tokenUsage: { accumulatedTokens: 100 } });
   await tc.refresh(); // 不应 reject
-  assert.strictEqual(document.getElementById('cuckoo-conv-token-count').textContent, '100');
 });

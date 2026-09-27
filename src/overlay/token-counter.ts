@@ -1,7 +1,9 @@
 /**
  * 对话 token 统计（T7 从 events.ts 拆出）
- * 负责：按会话缓存 + 按天累计的 localStorage 持久化、面板「对话 Token」显示刷新、
- * 壳页面状态条同步。deps 显式注入（会话 ID 提取、响应订阅、壳页面同步），便于测试。
+ * 负责：按会话缓存 + 按天累计的 localStorage 持久化、壳页面状态条同步。
+ * UI 改版（Task 6）后本模块只负责数据上报，不再写 overlay DOM
+ * （「对话 Token」展示迁至 shell 侧栏「项目」面板，由主进程转发 shell-token-updated）。
+ * deps 显式注入（会话 ID 提取、响应订阅、壳页面同步），便于测试。
  */
 import { KEYS, readKey, writeKey, removeKey } from './storage.js';
 
@@ -141,17 +143,6 @@ function getTokenForSession(sessionId: string | null): { context: number; cumula
   return { context: 0, cumulative: 0 };
 }
 
-/**
- * 格式化 token 数：过万显示为「xxx万」，否则原样显示
- */
-function formatTokenCount(n: number): string {
-  if (!Number.isFinite(n) || n < 0) return '0';
-  if (n >= 10000) {
-    return (n / 10000).toFixed(2) + '万';
-  }
-  return String(Math.round(n));
-}
-
 interface TokenCounterDeps {
   /** 取当前页面对应的会话 ID（无则 null） */
   getCurrentSessionId(): string | null;
@@ -162,17 +153,16 @@ interface TokenCounterDeps {
 }
 
 interface TokenCounter {
-  /** 刷新面板里的「对话 Token」显示（并同步壳页面状态条） */
+  /** 重新计算当前会话 token 并同步壳页面（数据上报，不写 DOM） */
   refresh(): Promise<void>;
 }
 
 /**
  * 启动对话 token 统计（事件驱动）
- * 仅在收到成功回复事件时记录并刷新显示，避免失败/停止时因旧 token 值误刷新。
+ * 仅在收到成功回复事件时记录并同步壳页面，避免失败/停止时因旧 token 值误刷新。
  */
 function initTokenCounter(deps: TokenCounterDeps): TokenCounter {
   async function refresh(): Promise<void> {
-    const countEl = document.getElementById('cuckoo-conv-token-count');
     // 优先用"当前会话"的缓存值（切会话/刷新后仍能显示该会话的 token）
     const sid = deps.getCurrentSessionId();
     const cached = sid ? getTokenForSession(sid) : { context: 0, cumulative: 0 };
@@ -180,8 +170,6 @@ function initTokenCounter(deps: TokenCounterDeps): TokenCounter {
       ? cached.context
       : (serverTokenUsage && typeof serverTokenUsage.accumulatedTokens === 'number' ? serverTokenUsage.accumulatedTokens : 0);
     const cumulative = cached.cumulative || 0;
-
-    if (countEl) countEl.textContent = formatTokenCount(context);
 
     try {
       await deps.updateShellTokenUsage?.(context, cumulative, getWindowCumulative(), getTodayCumulative());
