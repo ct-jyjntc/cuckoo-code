@@ -185,7 +185,7 @@ let eventsBound = false;
  * 「刷新技能与代理」按钮：让主进程重新扫描技能 + 代理目录，把最新清单发给 AI
  */
 async function handleSendSkills() {
-  const api = (window as any).electronAPI;
+  const api = window.electronAPI;
   if (!api || !api.refreshSkills) {
     showToast('接口不可用', 3000);
     return;
@@ -253,7 +253,7 @@ function updateConversationTokenDisplay() {
 
   // 同步到壳页面状态条（地址栏下方）：上下文 + 对话累计 + 窗口累计 + 今日累计
   try {
-    (window as any).electronAPI.updateTokenUsage(
+    window.electronAPI.updateTokenUsage(
       context, cumulative, getWindowCumulative(), getTodayCumulative()
     ).catch(() => {});
   } catch (_) {}
@@ -421,7 +421,7 @@ function bindEvents() {
   const wmNewWindowBtn = document.getElementById('cuckoo-wm-new-window');
   wmNewWindowBtn?.addEventListener('click', async () => {
     try {
-      await (window as any).electronAPI.createProfileWindow();
+      await window.electronAPI.createProfileWindow();
       showToast('已打开平台选择', 2200);
       await renderWindowList();
     } catch (err: any) {

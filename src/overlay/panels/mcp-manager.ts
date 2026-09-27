@@ -6,7 +6,7 @@ import { showToast, showConfirmDialog } from '../panel.js';
 
 /** 加载配置到 JSON 框（只显示用户级，不混项目级） */
 async function loadMcpConfigToJson() {
-  const res = await (window as any).electronAPI.listMcpServers({ scope: 'user' });
+  const res = await window.electronAPI.listMcpServers({ scope: 'user' });
   const servers = res && res.success ? res.servers : [];
   // 转成主流 mcpServers 格式
   const mcpServers: Record<string, any> = {};
@@ -31,7 +31,7 @@ async function renderMcpList() {
   const list = document.getElementById('cuckoo-mcp-list');
   if (!list) return;
   try {
-    const res = await (window as any).electronAPI.listMcpServers();
+    const res = await window.electronAPI.listMcpServers();
     const servers = res && res.success ? res.servers : [];
     if (!servers || servers.length === 0) {
       list.innerHTML = '<div class="cuckoo-session-empty">暂无 MCP Server</div>';
@@ -52,23 +52,23 @@ async function renderMcpList() {
 
     list.querySelectorAll('.cuckoo-mcp-item').forEach(el => {
       el.addEventListener('click', async () => {
-        const name = (el as any).dataset.mcpName;
+        const name = (el as HTMLElement).dataset.mcpName;
         const server = servers.find((s: any) => s.name === name);
         if (!server) return;
 
         // 点击后立即显示 loading
         const dot = el.querySelector('.cuckoo-mcp-dot');
-        if (dot) (dot as any).style.background = '#ffc107';
-        (el as any).style.pointerEvents = 'none';
+        if (dot) (dot as HTMLElement).style.background = '#ffc107';
+        (el as HTMLElement).style.pointerEvents = 'none';
 
         try {
           if (server.connected || server.enabled) {
             // 已连接或已启用 → 断开/禁用
-            await (window as any).electronAPI.disableMcpServer(name);
+            await window.electronAPI.disableMcpServer(name!);
             showToast('已断开 ' + name, 2000);
           } else {
             // 未启用 → 连接
-            await (window as any).electronAPI.enableMcpServer(name);
+            await window.electronAPI.enableMcpServer(name!);
             showToast('已连接 ' + name, 2000);
           }
           await renderMcpList();
@@ -158,12 +158,12 @@ async function handleMcpSave(sendToChat: any) {
     }
 
     // 先删除 JSON 里不存在的旧 server（只针对用户级，避免误删项目级）
-    const oldRes = await (window as any).electronAPI.listMcpServers({ scope: 'user' });
+    const oldRes = await window.electronAPI.listMcpServers({ scope: 'user' });
     const oldServers = (oldRes && oldRes.success && oldRes.servers) || [];
     const newNames = new Set(Object.keys(parsed.mcpServers));
     for (const old of oldServers) {
       if (!newNames.has(old.name)) {
-        await (window as any).electronAPI.removeMcpServer(old.name);
+        await window.electronAPI.removeMcpServer(old.name);
       }
     }
 
@@ -171,14 +171,14 @@ async function handleMcpSave(sendToChat: any) {
     for (const [name, def] of Object.entries(parsed.mcpServers) as [string, any][]) {
       const server = {
         name,
-        type: def && def.url ? 'http' : 'stdio',
+        type: (def && def.url ? 'http' : 'stdio') as 'http' | 'stdio',
         command: def && def.command,
         args: def && def.args || [],
         url: def && def.url,
         headers: def && def.headers,
         env: def && def.env,
       };
-      await (window as any).electronAPI.upsertMcpServer(server);
+      await window.electronAPI.upsertMcpServer(server);
     }
     showToast('配置已保存', 2200);
     await renderMcpList();
@@ -191,7 +191,7 @@ async function handleMcpSave(sendToChat: any) {
       );
       if (!confirmed) return;
 
-      const res = await (window as any).electronAPI.getMcpTools();
+      const res = await window.electronAPI.getMcpTools();
       const tools = res && res.success ? res.tools : [];
       const serverNames = Array.from(new Set(tools.map((t: any) => t.server)));
       let msg = '【MCP 配置已更新】\n\n';

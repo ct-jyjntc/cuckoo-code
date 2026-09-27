@@ -14,12 +14,12 @@ async function renderSessions(): Promise<void> {
   if (!listContainer) return;
 
   try {
-    if (!(window as any).electronAPI || !(window as any).electronAPI.listSessions) {
+    if (!window.electronAPI || !window.electronAPI.listSessions) {
       listContainer.innerHTML = '<div class="cuckoo-session-empty">API 不可用</div>';
       return;
     }
 
-    const result = await (window as any).electronAPI.listSessions();
+    const result = await window.electronAPI.listSessions();
     if (!result.success) {
       listContainer.innerHTML = '<div class="cuckoo-session-empty">加载失败</div>';
       return;
@@ -41,7 +41,7 @@ async function renderSessions(): Promise<void> {
     // 绑定点击事件
     listContainer.querySelectorAll('.cuckoo-session-item').forEach((item) => {
       item.addEventListener('click', () => {
-        const sessionId = (item as any).dataset.sessionId;
+        const sessionId = (item as HTMLElement).dataset.sessionId;
         if (sessionId) handleNavigateSession(sessionId);
       });
     });
@@ -58,12 +58,12 @@ async function handleNavigateSession(sessionId: string): Promise<void> {
   if (!sessionId) return;
 
   try {
-    if (!(window as any).electronAPI || !(window as any).electronAPI.navigateSession) {
+    if (!window.electronAPI || !window.electronAPI.navigateSession) {
       showToast('导航 API 不可用', 3000);
       return;
     }
 
-    const result = await (window as any).electronAPI.navigateSession(sessionId);
+    const result = await window.electronAPI.navigateSession(sessionId);
     if (result.success) {
       console.log('[Cuckoo Code] 已导航到会话:', sessionId);
       // 导航成功后，覆盖层可以保持打开，但用户可能会看到页面跳转
@@ -90,10 +90,10 @@ async function handleInitProject(): Promise<void> {
 
   try {
     // 调用主进程的 init-project IPC
-    if (!(window as any).electronAPI || !(window as any).electronAPI.initProject) {
+    if (!window.electronAPI || !window.electronAPI.initProject) {
       throw new Error('window.electronAPI.initProject 不存在');
     }
-    const result = await (window as any).electronAPI.initProject();
+    const result = await window.electronAPI.initProject();
     if (result && !result.success) {
       showToast(result.message || '初始化失败', 3000);
     }

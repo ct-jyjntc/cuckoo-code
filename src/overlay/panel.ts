@@ -285,7 +285,7 @@ function renderHistory(): void {
 
   list.querySelectorAll('.cuckoo-history-item').forEach((el) => {
     el.addEventListener('click', () => {
-      const id = (el as any).dataset.id;
+      const id = (el as HTMLElement).dataset.id;
       const entry = commandHistory.find((h) => h.id === id);
       if (entry) {
         const preview = document.getElementById('cuckoo-cmd-preview');

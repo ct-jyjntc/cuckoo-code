@@ -349,7 +349,7 @@ function checkPendingInit(): void {
   console.log('[Cuckoo Compact] 检测到压缩后待初始化，3 秒后执行；项目目录=' + (projectDir || '(无)'));
   setTimeout(() => {
     try {
-      (window as any).electronAPI.initProject(projectDir || null, true);
+      window.electronAPI.initProject(projectDir || null, true);
     } catch (err) {
       console.error('[Cuckoo Compact] 压缩后初始化失败:', err);
     }

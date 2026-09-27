@@ -32,7 +32,7 @@ function initProjectDirSection(): void {
         e.preventDefault();
         e.stopPropagation();
         // 使用 updateProjectDir 只更新目录映射，不重新发送初始提示
-        const result = await (window as any).electronAPI.updateProjectDir();
+        const result = await window.electronAPI.updateProjectDir();
         if (result && result.success) {
           // 主进程会发送 project-dir-updated 事件更新显示
           console.log('[Cuckoo Code] 目录已更新');

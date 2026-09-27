@@ -30,7 +30,7 @@ async function handleJsToolScript(code: string): Promise<{ code: string; result:
   const callId = 'js_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
   console.log('[Cuckoo Code] [诊断] 即将执行的代码(JSON转义): ' + JSON.stringify(code));
   try {
-    const result = await (window as any).electronAPI.executeJs(code, callId);
+    const result = await window.electronAPI.executeJs(code, callId);
 
     const resultSection = document.getElementById('cuckoo-result-section');
     const resultStatus = document.getElementById('cuckoo-result-status');

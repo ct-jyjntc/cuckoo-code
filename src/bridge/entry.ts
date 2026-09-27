@@ -79,7 +79,7 @@ function handleUrlChanged(): void {
     const text = provider.extractUserInfo();
     if (text && text !== lastSentUserName) {
       lastSentUserName = text;
-      (window as any).electronAPI.updateWindowName(text).catch(() => {});
+      window.electronAPI.updateWindowName(text).catch(() => {});
     }
   } catch (_) {}
 }

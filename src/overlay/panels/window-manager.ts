@@ -11,7 +11,7 @@ async function renderWindowList() {
   const list = document.getElementById('cuckoo-window-list');
   if (!list) return;
   try {
-    const res = await (window as any).electronAPI.listProfiles();
+    const res = await window.electronAPI.listProfiles();
     const profiles = res && res.success ? res.profiles : [];
     if (!profiles || profiles.length === 0) {
       list.innerHTML = '<div class="cuckoo-session-empty">暂无窗口</div>';
@@ -20,7 +20,7 @@ async function renderWindowList() {
     // 获取平台名映射
     const providerMap: Record<string, string> = {};
     try {
-      const pvRes = await (window as any).electronAPI.listProviders();
+      const pvRes = await window.electronAPI.listProviders();
       if (pvRes && pvRes.success) {
         (pvRes.providers || []).forEach((pv: any) => { providerMap[pv.id] = pv.name; });
       }
@@ -46,20 +46,20 @@ async function renderWindowList() {
     list.querySelectorAll('.cuckoo-window-auto input').forEach(cb => {
       cb.addEventListener('change', async (e) => {
         e.stopPropagation();
-        const profileId = (cb as any).dataset.profileId;
-        const on = (cb as any).checked;
+        const profileId = (cb as HTMLInputElement).dataset.profileId;
+        const on = (cb as HTMLInputElement).checked;
         try {
-          const r = await (window as any).electronAPI.setProfileAutoOpen(profileId, on);
+          const r = await window.electronAPI.setProfileAutoOpen(profileId!, on);
           if (!r || !r.success) {
             showToast((r && r.error) || '设置失败', 3000);
-            (cb as any).checked = !on; // 回滚
+            (cb as HTMLInputElement).checked = !on; // 回滚
           }
         } catch (err: any) {
           showToast('设置失败: ' + (err.message || err), 3000);
-          (cb as any).checked = !on;
+          (cb as HTMLInputElement).checked = !on;
         }
       });
-      (cb as any).addEventListener('click', (e: any) => e.stopPropagation());
+      cb.addEventListener('click', (e) => e.stopPropagation());
     });
 
     list.querySelectorAll('.cuckoo-window-item').forEach(el => {
@@ -67,9 +67,9 @@ async function renderWindowList() {
         // 点击删除按钮或复选框不触发切换
         if ((e.target as any).classList.contains('cuckoo-window-del')) return;
         if ((e.target as any).closest('.cuckoo-window-auto')) return;
-        const profileId = (el as any).dataset.profileId;
+        const profileId = (el as HTMLElement).dataset.profileId;
         try {
-          const r = await (window as any).electronAPI.openProfileWindow(profileId);
+          const r = await window.electronAPI.openProfileWindow(profileId!);
           if (r && r.success) {
             showToast(r.focused ? '已切换到该窗口' : '已打开窗口', 2000);
             closeWindowManager();
@@ -85,9 +85,9 @@ async function renderWindowList() {
     list.querySelectorAll('.cuckoo-window-del').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const profileId = (btn as any).dataset.profileId;
+        const profileId = (btn as HTMLElement).dataset.profileId;
         try {
-          const r = await (window as any).electronAPI.deleteProfileWindow(profileId);
+          const r = await window.electronAPI.deleteProfileWindow(profileId!);
           if (r && r.success) {
             showToast('已删除窗口', 2000);
             await renderWindowList();
