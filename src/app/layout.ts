@@ -22,9 +22,9 @@ export const SHELL_LAYOUT = {
   RAIL_WIDTH: 52,
   /** 侧面板宽度（展开时） */
   PANEL_WIDTH: 280,
-  /** AI 页面卡片四周间距 */
-  CARD_MARGIN: 10,
-  /** AI 页面卡片圆角（view.setBorderRadius） */
+  /** AI 页面卡片四周间距（0 = 内容容器紧贴 chrome，无留白） */
+  CARD_MARGIN: 0,
+  /** AI 页面卡片圆角（view.setBorderRadius；紧贴 chrome 时仅上方两角可见） */
   CARD_RADIUS: 12,
 } as const;
 
