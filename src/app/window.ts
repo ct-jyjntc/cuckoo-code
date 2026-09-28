@@ -15,6 +15,11 @@ interface WindowContext {
   panelId?: string | null;
   /** 导航条浮层是否滑出（默认隐藏不占布局），由 shell-topbar-visible IPC 维护 */
   topbarVisible?: boolean;
+  /**
+   * AI 页面 view 的缩放倍率（1 = 100%）。由 shell-zoom-* IPC 维护，
+   * 窗口内共享；不落盘，重启回到 1。
+   */
+  zoomFactor?: number;
   /** 面板开关变化后重算 view bounds（由 entry.ts 注入） */
   relayout?: () => void;
 }

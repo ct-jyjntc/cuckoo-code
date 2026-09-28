@@ -51,7 +51,7 @@ if (RENDERER_LOG_DIR) {
 import { registerIpcHandlers } from './ipc/index.js';
 import { injectSubagentDeps, runAgent as runAgentImpl } from './subagent.js';
 import { injectAgentRunner } from '../tools/impl/run-agent.js';
-import { pushUrlState } from './ipc/shell.js';
+import { pushUrlState, applyZoom } from './ipc/shell.js';
 
 // 退出前需要 flush 的 sessions
 const sessionsToFlush = new Set<any>();
@@ -97,9 +97,9 @@ function createWindow(profile: any) {
     title: 'Cuckoo Code Pro - ' + (provider ? provider.name : '未选择平台') + ' - ' + profileData.name,
     // 无边框窗口（CherryStudio 式）：macOS 隐藏原生标题栏、红绿灯内嵌常驻标题栏。
     // trafficLightPosition.y 是红绿灯容器顶边相对窗口顶部的偏移；42px 标题栏下
-    // 取 14 使 12px 按钮垂直居中（16 会明显偏下，实测反馈）。
+    // 取 15 是实测最佳值（视觉居中，14 略偏上、16 明显偏下）。
     ...(process.platform === 'darwin'
-      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 14 } }
+      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 15 } }
       : { frame: false }),
     autoHideMenuBar: true,
     webPreferences: {
@@ -285,6 +285,11 @@ function createWindow(profile: any) {
     const action = decideViewKeyAction(input, ctx.panelId || null);
     if (!action) return;
     event.preventDefault();
+    // 缩放快捷键：主进程直接应用（view 是 AI 页面本体，无需经壳页面中转）
+    if (action === 'zoom-in' || action === 'zoom-out' || action === 'zoom-reset') {
+      applyZoom(ctx, action === 'zoom-in' ? 'in' : action === 'zoom-out' ? 'out' : 'reset');
+      return;
+    }
     const channel = action === 'toggle-panel' ? 'shell-toggle-panel'
       : action === 'close-panel' ? 'shell-close-panel'
       : 'shell-focus-url';
@@ -337,6 +342,14 @@ function createSubagentWindow(parentProfileId: string, agentName: string): numbe
 }
 
 // ========== 应用菜单 ==========
+// 菜单「查看 → 缩放」作用于 AI 页面 view（而不是聚焦的壳页面 webContents，缩放壳 UI 无意义）。
+// 快捷键不走菜单加速器：AI 页面聚焦时由 before-input-event 直接应用，壳页面聚焦时由 shell.js 处理。
+function zoomFocusedWindow(focusedWindow: any, action: 'in' | 'out' | 'reset') {
+  if (!focusedWindow) return;
+  const ctx = windowState.getContextByWebContents(focusedWindow.webContents);
+  if (ctx) applyZoom(ctx, action);
+}
+
 function setupAppMenu() {
   const template = [
     {
@@ -436,9 +449,18 @@ function setupAppMenu() {
     {
       label: '查看',
       submenu: [
-        { role: 'resetZoom', label: '重置缩放' },
-        { role: 'zoomIn', label: '放大' },
-        { role: 'zoomOut', label: '缩小' },
+        {
+          label: '重置缩放',
+          click: (_item: any, focusedWindow: any) => zoomFocusedWindow(focusedWindow, 'reset'),
+        },
+        {
+          label: '放大',
+          click: (_item: any, focusedWindow: any) => zoomFocusedWindow(focusedWindow, 'in'),
+        },
+        {
+          label: '缩小',
+          click: (_item: any, focusedWindow: any) => zoomFocusedWindow(focusedWindow, 'out'),
+        },
         { type: 'separator' },
         { role: 'togglefullscreen', label: '切换全屏' },
         { type: 'separator' },

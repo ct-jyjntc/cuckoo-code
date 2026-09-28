@@ -22,6 +22,12 @@ const shellAPI = {
   windowMinimize: () => ipcRenderer.invoke('shell-window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('shell-window-maximize'),
   windowClose: () => ipcRenderer.invoke('shell-window-close'),
+  // 视图缩放（标题栏按钮 / Ctrl+Cmd +/-/0 共用）：'in' | 'out' | 'reset'
+  zoom: (action: string) => ipcRenderer.invoke('shell-zoom', { action }),
+  getZoom: () => ipcRenderer.invoke('shell-zoom-get'),
+  onZoomUpdated: (cb: (data: any) => void) => {
+    ipcRenderer.on('shell-zoom-updated', (_e: any, data: any) => cb(data));
+  },
   onUrlUpdated: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-url-updated', (_e: any, data: any) => cb(data));
   },

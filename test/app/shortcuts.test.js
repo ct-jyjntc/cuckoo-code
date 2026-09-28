@@ -52,6 +52,29 @@ describe('decideViewKeyAction', () => {
     assert.strictEqual(decideViewKeyAction({ key: 'l', shift: true }, null), null);
   });
 
+  it('Ctrl/Cmd += 或 + → zoom-in（+ 与 = 同键，Shift 加号仍算放大）', () => {
+    assert.strictEqual(decideViewKeyAction({ key: '=', control: true }, null), 'zoom-in');
+    assert.strictEqual(decideViewKeyAction({ key: '+', control: true, shift: true }, null), 'zoom-in');
+    assert.strictEqual(decideViewKeyAction({ key: '+', meta: true, shift: true }, 'chat'), 'zoom-in');
+  });
+
+  it('Ctrl/Cmd +- 或 _ → zoom-out（_ 为 Shift+减号）', () => {
+    assert.strictEqual(decideViewKeyAction({ key: '-', control: true }, null), 'zoom-out');
+    assert.strictEqual(decideViewKeyAction({ key: '_', control: true, shift: true }, null), 'zoom-out');
+    assert.strictEqual(decideViewKeyAction({ key: '-', meta: true }, 'chat'), 'zoom-out');
+  });
+
+  it('Ctrl/Cmd +0 → zoom-reset，与面板状态无关', () => {
+    assert.strictEqual(decideViewKeyAction({ key: '0', control: true }, null), 'zoom-reset');
+    assert.strictEqual(decideViewKeyAction({ key: '0', meta: true }, 'mcp'), 'zoom-reset');
+  });
+
+  it('缺 ctrl/meta 的缩放键不拦截（放行给页面自身）', () => {
+    assert.strictEqual(decideViewKeyAction({ key: '=' }, 'chat'), null);
+    assert.strictEqual(decideViewKeyAction({ key: '-', shift: true }, null), null);
+    assert.strictEqual(decideViewKeyAction({ key: '0' }, null), null);
+  });
+
   it('其他按键一律放行', () => {
     assert.strictEqual(decideViewKeyAction({ key: 'a', control: true }, 'chat'), null);
     assert.strictEqual(decideViewKeyAction({ key: 'F5' }, 'chat'), null);

@@ -11,6 +11,43 @@ import { setWindowCumulative, getTotal, cleanupSubagentKeys } from '../token-sta
 const require = createRequire(import.meta.url);
 const { ipcMain } = require('electron');
 
+/** 视图缩放步进 / 上下限（与标题栏缩放菜单、Ctrl/Cmd +/-/0 共用同一状态机） */
+export const ZOOM_STEP = 0.1;
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 2;
+
+export type ZoomAction = 'in' | 'out' | 'reset';
+
+/** 把缩放动作应用到窗口的 AI 页面 view，并把最新倍率广播给壳页面标题栏 */
+function applyZoomToContext(ctx: any, action: ZoomAction): number {
+  const current = typeof ctx.zoomFactor === 'number' && ctx.zoomFactor > 0 ? ctx.zoomFactor : 1;
+  let next = current;
+  if (action === 'in') {
+    next = Math.min(ZOOM_MAX, Math.round((current + ZOOM_STEP) * 10) / 10);
+  } else if (action === 'out') {
+    next = Math.max(ZOOM_MIN, Math.round((current - ZOOM_STEP) * 10) / 10);
+  } else {
+    next = 1;
+  }
+  ctx.zoomFactor = next;
+  if (ctx.view && ctx.view.webContents && !ctx.view.webContents.isDestroyed()) {
+    try { ctx.view.webContents.setZoomFactor(next); } catch (_) {}
+  }
+  if (ctx.win && !ctx.win.isDestroyed()) {
+    try { ctx.win.webContents.send('shell-zoom-updated', { zoomFactor: next }); } catch (_) {}
+  }
+  return next;
+}
+
+/** 主进程直接应用缩放（菜单 / AI 页面聚焦时的快捷键 relay 入口） */
+function applyZoom(viewWebContentsOrCtx: any, action: ZoomAction): number | null {
+  const ctx = viewWebContentsOrCtx && viewWebContentsOrCtx.view
+    ? viewWebContentsOrCtx
+    : windowState.getContextByWebContents(viewWebContentsOrCtx);
+  if (!ctx || !ctx.view || !ctx.view.webContents || ctx.view.webContents.isDestroyed()) return null;
+  return applyZoomToContext(ctx, action);
+}
+
 /** 取事件来源对应的 AI 页面 view */
 function viewOf(event: any): any {
   return windowState.getViewByWebContents(event.sender);
@@ -208,6 +245,24 @@ function registerShellIpc(): void {
     if (ctx && ctx.win && !ctx.win.isDestroyed()) ctx.win.close();
     return { success: true };
   });
+
+  // ===== 视图缩放（标题栏按钮 / 壳页面快捷键 / AI 页面快捷键 relay 共用） =====
+  ipcMain.handle('shell-zoom', async (event: any, { action }: any = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx) return { success: false, error: '窗口上下文不存在' };
+    if (action !== 'in' && action !== 'out' && action !== 'reset') {
+      return { success: false, error: '未知缩放动作' };
+    }
+    const zoomFactor = applyZoomToContext(ctx, action);
+    return { success: true, zoomFactor };
+  });
+
+  // 壳页面重载后回读当前倍率（主进程 ctx.zoomFactor 不落盘，默认 1）
+  ipcMain.handle('shell-zoom-get', async (event: any) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const zoomFactor = ctx && typeof ctx.zoomFactor === 'number' && ctx.zoomFactor > 0 ? ctx.zoomFactor : 1;
+    return { success: true, zoomFactor };
+  });
 }
 
-export { registerShellIpc, pushUrlState, pushTokenUsage };
+export { registerShellIpc, pushUrlState, pushTokenUsage, applyZoom };

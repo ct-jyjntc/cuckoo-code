@@ -148,6 +148,50 @@ export function initShell(api, doc, hooks) {
   // AI 页面聚焦时 Ctrl+L 由主进程 before-input-event relay 回来
   if (api.onFocusUrl) api.onFocusUrl(focusUrlInput);
 
+  // ===== 视图缩放（标题栏按钮 + 壳页面 Ctrl/Cmd +/-/0；AI 页面聚焦时由主进程直接应用） =====
+  const zoomWrap = doc.querySelector('.zoom-wrap');
+  const btnZoom = doc.getElementById('btn-zoom');
+  const zoomMenu = doc.getElementById('zoom-menu');
+  const zoomValue = doc.getElementById('zoom-value');
+
+  function setZoomLabel(factor) {
+    if (zoomValue) zoomValue.textContent = Math.round((factor || 1) * 100) + '%';
+  }
+
+  function setZoomMenuOpen(open) {
+    if (zoomMenu) zoomMenu.hidden = !open;
+  }
+
+  if (btnZoom) {
+    btnZoom.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setZoomMenuOpen(!!zoomMenu && zoomMenu.hidden);
+    });
+  }
+  if (zoomMenu) {
+    zoomMenu.addEventListener('click', function (e) {
+      const item = e.target && e.target.closest ? e.target.closest('[data-zoom]') : null;
+      if (!item) return;
+      if (api.zoom) api.zoom(item.dataset.zoom);
+      setZoomMenuOpen(false);
+    });
+  }
+  // 点击按钮/菜单外任意处收起缩放菜单
+  doc.addEventListener('click', function (e) {
+    if (zoomWrap && !zoomWrap.contains(e.target)) setZoomMenuOpen(false);
+  });
+  // 壳重载后回读主进程保留的倍率；运行中由 shell-zoom-updated 增量刷新
+  if (api.getZoom) {
+    api.getZoom().then(function (res) {
+      if (res && typeof res.zoomFactor === 'number') setZoomLabel(res.zoomFactor);
+    }).catch(function () {});
+  }
+  if (api.onZoomUpdated) {
+    api.onZoomUpdated(function (data) {
+      if (data && typeof data.zoomFactor === 'number') setZoomLabel(data.zoomFactor);
+    });
+  }
+
   // ===== 面板切换状态机 =====
   const panel = doc.getElementById('side-panel');
   const panelTitle = doc.getElementById('panel-title');
@@ -190,6 +234,15 @@ export function initShell(api, doc, hooks) {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'L' || e.key === 'l')) {
       e.preventDefault();
       focusUrlInput();
+      return;
+    }
+    // Ctrl/Cmd +/-/0：缩放 AI 页面（浏览器惯例键；'+' 与 '=' 同键、'_' 为 Shift+-，都放行）
+    if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+' || e.key === '-' || e.key === '_' || e.key === '0')) {
+      e.preventDefault();
+      const action = (e.key === '=' || e.key === '+') ? 'in'
+        : (e.key === '-' || e.key === '_') ? 'out'
+        : 'reset';
+      if (api.zoom) api.zoom(action);
       return;
     }
     if (e.key === 'Escape' && activePanel && !isEditableTarget(e.target)) {
