@@ -35,30 +35,6 @@
       </div>
     </aside>
     <div class="main">
-      <header class="topbar">
-        <button class="nav-btn disabled" id="btn-back" title="后退">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <button class="nav-btn disabled" id="btn-forward" title="前进">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-        <button class="nav-btn" id="btn-reload" title="刷新">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-        </button>
-        <div class="url-wrap">
-          <svg class="lock" id="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-          <input class="url-input" id="url-input" placeholder="输入网址后回车" spellcheck="false" autocomplete="off"/>
-        </div>
-        <button class="nav-btn" id="btn-home" title="主页">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-        </button>
-        <div class="divider"></div>
-        <!-- 点击徽章：展开「项目」面板并滚动到用量区（shell.js 接线） -->
-        <button class="token-badge" id="token-badge" title="对话上下文：本会话当前占用的 token 总量（点击查看用量明细）">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <span class="token-value" id="token-value">0</span>
-        </button>
-      </header>
       <div class="body">
         <aside class="panel" id="side-panel" hidden>
           <div class="panel-header">
@@ -267,6 +243,34 @@
         <div class="viewport"></div>
       </div>
     </div>
+    <!-- 顶栏：默认隐藏的浮层（position: fixed，不占布局高度）。
+         滑出时由 shell.js 加 .visible；主进程同步把 view 下移 44px 露出浮层。 -->
+    <header class="topbar" id="topbar">
+      <button class="nav-btn disabled" id="btn-back" title="后退">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="nav-btn disabled" id="btn-forward" title="前进">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button class="nav-btn" id="btn-reload" title="刷新">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <div class="url-wrap">
+        <svg class="lock" id="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <input class="url-input" id="url-input" placeholder="输入网址后回车" spellcheck="false" autocomplete="off"/>
+      </div>
+      <button class="nav-btn" id="btn-home" title="主页">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      </button>
+      <div class="divider"></div>
+      <!-- 点击徽章：展开「项目」面板并滚动到用量区（shell.js 接线） -->
+      <button class="token-badge" id="token-badge" title="对话上下文：本会话当前占用的 token 总量（点击查看用量明细）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="token-value" id="token-value">0</span>
+      </button>
+    </header>
+    <!-- 顶部 12px 热区：顶栏隐藏时鼠标移入唤出顶栏 -->
+    <div class="topbar-hotzone" id="topbar-hotzone"></div>
   </div>
 <script type="module">
   import { initShell } from './shell.js';

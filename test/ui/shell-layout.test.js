@@ -5,7 +5,7 @@
  * 覆盖：图标栏渲染、面板展开/收起状态切换、token 徽章更新。
  * 标记 HTML 直接读自 src/ui/shell.html，避免测试与实现脱节。
  */
-import { describe, it, beforeEach, afterEach } from 'vitest';
+import { describe, it, beforeEach, afterEach, vi } from 'vitest';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -38,10 +38,12 @@ function makeApi() {
     reload: () => {},
     home: () => { calls.push(['home']); },
     setPanelOpen: (panelId) => { calls.push(['setPanelOpen', panelId]); },
+    setTopbarVisible: (visible) => { calls.push(['setTopbarVisible', visible]); },
     onUrlUpdated: (cb) => { handlers.url = cb; },
     onTokenUpdated: (cb) => { handlers.token = cb; },
     onTogglePanel: (cb) => { handlers.togglePanel = cb; },
     onClosePanel: (cb) => { handlers.closePanel = cb; },
+    onFocusUrl: (cb) => { handlers.focusUrl = cb; },
   };
   return api;
 }
@@ -221,6 +223,95 @@ describe('快捷键（原 overlay Ctrl+Shift+C / Esc 迁入 shell）', () => {
     assert.deepStrictEqual(api.calls, [['setPanelOpen', 'chat']]);
     api.handlers.closePanel();
     assert.deepStrictEqual(api.calls, [['setPanelOpen', 'chat'], ['setPanelOpen', null]]);
+  });
+});
+
+describe('顶栏沉浸式自动隐藏', () => {
+  const topbar = () => document.getElementById('topbar');
+  const hotzone = () => document.getElementById('topbar-hotzone');
+  const urlInput = () => document.getElementById('url-input');
+
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('初始隐藏：无 .visible 类，热区与浮层元素存在', () => {
+    assert.strictEqual(topbar().classList.contains('visible'), false);
+    assert.strictEqual(hotzone() !== null, true);
+    assert.strictEqual(api.calls.length, 0);
+  });
+
+  it('热区 mouseenter：顶栏滑出并通知主进程 setTopbarVisible(true)', () => {
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
+  });
+
+  it('顶栏 mouseleave：600ms 内不收起，超时后收起并通知主进程', () => {
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    topbar().dispatchEvent(new MouseEvent('mouseenter'));
+    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+    vi.advanceTimersByTime(599);
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+    vi.advanceTimersByTime(1);
+    assert.strictEqual(topbar().classList.contains('visible'), false);
+    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true], ['setTopbarVisible', false]]);
+  });
+
+  it('顶栏 mouseenter 取消待执行的收起', () => {
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+    vi.advanceTimersByTime(300);
+    topbar().dispatchEvent(new MouseEvent('mouseenter'));
+    vi.advanceTimersByTime(1000);
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+  });
+
+  it('热区 mouseleave 且顶栏可见（未进入顶栏）：600ms 后收起', () => {
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    hotzone().dispatchEvent(new MouseEvent('mouseleave'));
+    vi.advanceTimersByTime(600);
+    assert.strictEqual(topbar().classList.contains('visible'), false);
+    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true], ['setTopbarVisible', false]]);
+  });
+
+  it('URL 输入框聚焦期间：即使鼠标离开顶栏也不收起', () => {
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    urlInput().focus();
+    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+    vi.advanceTimersByTime(2000);
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+  });
+
+  it('URL 输入框 blur 后重新计时，600ms 收起', () => {
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    urlInput().focus();
+    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+    vi.advanceTimersByTime(2000);
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+    urlInput().blur();
+    vi.advanceTimersByTime(600);
+    assert.strictEqual(topbar().classList.contains('visible'), false);
+  });
+
+  it('Ctrl+L（壳聚焦）：唤出顶栏、聚焦 URL 输入框、preventDefault', () => {
+    const e = new KeyboardEvent('keydown', { key: 'l', ctrlKey: true, bubbles: true, cancelable: true });
+    document.dispatchEvent(e);
+    assert.strictEqual(e.defaultPrevented, true);
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(document.activeElement === urlInput(), true);
+  });
+
+  it('主进程 relay：onFocusUrl 唤出顶栏并聚焦 URL 输入框', () => {
+    api.handlers.focusUrl();
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(document.activeElement === urlInput(), true);
+    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
+  });
+
+  it('顶栏已可见时热区重复 mouseenter：不重复通知主进程', () => {
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
   });
 });
 

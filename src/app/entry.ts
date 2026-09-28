@@ -127,14 +127,16 @@ function createWindow(profile: any) {
   });
   mainWindow.contentView.addChildView(view);
 
-  // 布局：左图标栏 52 + 面板 280×开关 + 圆角卡片边距 10（见 src/app/layout.ts）
+  // 布局：左图标栏 52 + 面板 280×开关 + 圆角卡片边距 10（见 src/app/layout.ts）；
+  // 顶栏为浮层，默认不占高，滑出时临时下移 view（ctx.topbarVisible）
   view.setBorderRadius(SHELL_LAYOUT.CARD_RADIUS);
   const layoutView = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const [w, h] = mainWindow.getContentSize();
     const ctx = windowState.getWindowContext(mainWindow.id);
     const panelOpen = !!(ctx && ctx.panelId);
-    view.setBounds(computeViewBounds(w, h, panelOpen));
+    const topbarVisible = !!(ctx && ctx.topbarVisible);
+    view.setBounds(computeViewBounds(w, h, panelOpen, topbarVisible));
   };
   layoutView();
   mainWindow.on('resize', layoutView);
@@ -265,14 +267,17 @@ function createWindow(profile: any) {
     }
     if (input.type !== 'keyDown') return;
     // 原 overlay 快捷键迁入 shell（Task 10）：AI 页面聚焦时按键落在 view，
-    // 判定为面板动作则 relay 给壳页面并 preventDefault——否则会与菜单
-    // 「停止加载」（曾占 Esc 加速器）或页面自身的 Esc 行为叠加触发。
+    // 判定为壳动作（面板切换/收起、Ctrl+L 唤出顶栏聚焦 URL）则 relay 给壳页面
+    // 并 preventDefault——否则会与菜单「停止加载」（曾占 Esc 加速器）或页面自身行为叠加触发。
     const ctx = windowState.getContextByWebContents(view.webContents);
     if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;
     const action = decideViewKeyAction(input, ctx.panelId || null);
     if (!action) return;
     event.preventDefault();
-    ctx.win.webContents.send(action === 'toggle-panel' ? 'shell-toggle-panel' : 'shell-close-panel');
+    const channel = action === 'toggle-panel' ? 'shell-toggle-panel'
+      : action === 'close-panel' ? 'shell-close-panel'
+      : 'shell-focus-url';
+    ctx.win.webContents.send(channel);
   });
 
   // 关闭前记录窗口大小/位置（用 getNormalBounds 取"还原后"尺寸；closed 时窗口已销毁取不到）

@@ -14,6 +14,8 @@ const shellAPI = {
   reload: () => ipcRenderer.invoke('shell-reload'),
   home: () => ipcRenderer.invoke('shell-home'),
   setPanelOpen: (panelId: string | null) => ipcRenderer.invoke('shell-panel-state', { panelId }),
+  // 顶栏浮层开关：主进程据此临时下移/恢复 view（WebContentsView 原生层级高于壳 DOM）
+  setTopbarVisible: (visible: boolean) => ipcRenderer.invoke('shell-topbar-visible', { visible }),
   onUrlUpdated: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-url-updated', (_e: any, data: any) => cb(data));
   },
@@ -74,12 +76,16 @@ const shellAPI = {
   onPanelRestore: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-panel-restore', (_e: any, data: any) => cb(data));
   },
-  // 快捷键 relay：AI 页面聚焦时 Ctrl+Shift+C / Esc 由主进程 before-input-event 转发到壳
+  // 快捷键 relay：AI 页面聚焦时 Ctrl+Shift+C / Esc / Ctrl+L 由主进程 before-input-event 转发到壳
   onTogglePanel: (cb: () => void) => {
     ipcRenderer.on('shell-toggle-panel', () => cb());
   },
   onClosePanel: (cb: () => void) => {
     ipcRenderer.on('shell-close-panel', () => cb());
+  },
+  // Ctrl+L relay：唤出顶栏并聚焦 URL 输入框
+  onFocusUrl: (cb: () => void) => {
+    ipcRenderer.on('shell-focus-url', () => cb());
   },
 };
 

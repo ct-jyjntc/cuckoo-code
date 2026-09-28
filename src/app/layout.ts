@@ -2,14 +2,19 @@
  * 壳窗口布局纯函数（浅色改版骨架）。
  *
  * 布局结构：
- *   左图标栏 52px（全高） + 顶栏 44px（图标栏右侧） + 可展开面板 280px
+ *   左图标栏 52px（全高） + 可展开面板 280px
+ *   顶栏为默认隐藏的浮层（shell DOM，不占布局高度）；
  *   AI 页面 view 以圆角卡片呈现，四周留 10px 边距。
- * bounds = f(窗口尺寸, panelOpen)，无 Electron 依赖，便于单测。
+ * bounds = f(窗口尺寸, panelOpen, topbarVisible)，无 Electron 依赖，便于单测。
  */
 
 export const SHELL_LAYOUT = {
-  /** 顶栏高度 */
-  TOPBAR_HEIGHT: 44,
+  /**
+   * 顶栏浮层高度。默认隐藏、不占布局；滑出时因 WebContentsView 原生层级
+   * 高于壳页面 DOM（CSS z-index 无法覆盖），主进程会临时把 view 下移该高度，
+   * 使浮层可见可点；隐藏后 view 回到 y = CARD_MARGIN。
+   */
+  TOPBAR_OVERLAY_HEIGHT: 44,
   /** 左侧图标栏宽度 */
   RAIL_WIDTH: 52,
   /** 侧面板宽度（展开时） */
@@ -38,11 +43,16 @@ export interface ViewBounds {
   height: number;
 }
 
-/** 由窗口内容尺寸与面板开关计算 AI 页面 view 的 bounds */
-export function computeViewBounds(winWidth: number, winHeight: number, panelOpen: boolean): ViewBounds {
+/** 由窗口尺寸与面板/顶栏状态计算 AI 页面 view 的 bounds */
+export function computeViewBounds(
+  winWidth: number,
+  winHeight: number,
+  panelOpen: boolean,
+  topbarVisible: boolean = false
+): ViewBounds {
   const m = SHELL_LAYOUT.CARD_MARGIN;
   const x = SHELL_LAYOUT.RAIL_WIDTH + (panelOpen ? SHELL_LAYOUT.PANEL_WIDTH : 0) + m;
-  const y = SHELL_LAYOUT.TOPBAR_HEIGHT + m;
+  const y = (topbarVisible ? SHELL_LAYOUT.TOPBAR_OVERLAY_HEIGHT : 0) + m;
   return {
     x,
     y,

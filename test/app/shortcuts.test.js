@@ -32,6 +32,20 @@ describe('decideViewKeyAction', () => {
     assert.strictEqual(decideViewKeyAction({ key: 'C' }, 'chat'), null);
   });
 
+  it('Ctrl+L → focus-url（唤出顶栏并聚焦 URL 输入框），与面板状态无关', () => {
+    assert.strictEqual(decideViewKeyAction({ key: 'L', control: true }, null), 'focus-url');
+    assert.strictEqual(decideViewKeyAction({ key: 'l', control: true }, 'chat'), 'focus-url');
+  });
+
+  it('Ctrl+Shift+L 不触发 focus-url', () => {
+    assert.strictEqual(decideViewKeyAction({ key: 'L', control: true, shift: true }, null), null);
+  });
+
+  it('缺 ctrl 的 L 不触发', () => {
+    assert.strictEqual(decideViewKeyAction({ key: 'L' }, 'chat'), null);
+    assert.strictEqual(decideViewKeyAction({ key: 'l', shift: true }, null), null);
+  });
+
   it('其他按键一律放行', () => {
     assert.strictEqual(decideViewKeyAction({ key: 'a', control: true }, 'chat'), null);
     assert.strictEqual(decideViewKeyAction({ key: 'F5' }, 'chat'), null);

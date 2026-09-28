@@ -62,6 +62,60 @@ export function initShell(api, doc, hooks) {
     }
   });
 
+  // ===== 顶栏沉浸式自动隐藏状态机 =====
+  // 默认隐藏；热区 mouseenter / Ctrl+L 唤出；离开顶栏 600ms 后收起，
+  // URL 输入框聚焦期间不收起（blur 后重新计时）。
+  const topbar = doc.getElementById('topbar');
+  const hotzone = doc.getElementById('topbar-hotzone');
+  const TOPBAR_HIDE_DELAY = 600;
+  let topbarVisible = false;
+  let hideTimer = null;
+
+  function clearHideTimer() {
+    if (hideTimer !== null) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+
+  function setTopbarVisible(visible) {
+    topbarVisible = visible;
+    topbar.classList.toggle('visible', visible);
+    // 同步主进程：滑出时 view 下移 44px 露出浮层，隐藏后回到顶部
+    if (api.setTopbarVisible) api.setTopbarVisible(visible);
+  }
+
+  function showTopbar() {
+    clearHideTimer();
+    if (!topbarVisible) setTopbarVisible(true);
+  }
+
+  function scheduleHide() {
+    clearHideTimer();
+    hideTimer = setTimeout(function () {
+      hideTimer = null;
+      if (doc.activeElement === input) return; // URL 输入框聚焦期间不收起
+      if (topbarVisible) setTopbarVisible(false);
+    }, TOPBAR_HIDE_DELAY);
+  }
+
+  function focusUrlInput() {
+    showTopbar();
+    input.focus();
+    input.select();
+  }
+
+  hotzone.addEventListener('mouseenter', showTopbar);
+  // 鼠标从热区移开且未进入顶栏（如移出窗口/移到图标栏）：延迟收起
+  hotzone.addEventListener('mouseleave', function () { if (topbarVisible) scheduleHide(); });
+  topbar.addEventListener('mouseenter', clearHideTimer);
+  topbar.addEventListener('mouseleave', scheduleHide);
+  input.addEventListener('focus', clearHideTimer);
+  input.addEventListener('blur', scheduleHide);
+
+  // AI 页面聚焦时 Ctrl+L 由主进程 before-input-event relay 回来
+  if (api.onFocusUrl) api.onFocusUrl(focusUrlInput);
+
   // ===== 面板切换状态机 =====
   const panel = doc.getElementById('side-panel');
   const panelTitle = doc.getElementById('panel-title');
@@ -98,6 +152,12 @@ export function initShell(api, doc, hooks) {
     if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
       e.preventDefault();
       togglePanel();
+      return;
+    }
+    // Ctrl+L：无论顶栏是否可见都唤出并聚焦 URL 输入框（浏览器惯例键，拦截）
+    if (e.ctrlKey && !e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+      e.preventDefault();
+      focusUrlInput();
       return;
     }
     if (e.key === 'Escape' && activePanel && !isEditableTarget(e.target)) {
@@ -167,5 +227,7 @@ export function initShell(api, doc, hooks) {
 
   return {
     getActivePanel: function () { return activePanel; },
+    isTopbarVisible: function () { return topbarVisible; },
+    showTopbar: showTopbar,
   };
 }

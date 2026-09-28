@@ -174,6 +174,16 @@ function registerShellIpc(): void {
     try { if (ctx.relayout) ctx.relayout(); } catch (_) {}
     return { success: true, panelId: ctx.panelId };
   });
+
+  // 顶栏浮层滑出/收起：WebContentsView 原生层级高于壳页面 DOM，浮层会被 view 遮挡，
+  // 故滑出时临时把 view 下移一个顶栏高度（computeViewBounds 第 4 参），收起后回到顶部。
+  ipcMain.handle('shell-topbar-visible', async (event: any, { visible }: any = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx) return { success: false, error: '窗口上下文不存在' };
+    ctx.topbarVisible = !!visible;
+    try { if (ctx.relayout) ctx.relayout(); } catch (_) {}
+    return { success: true, topbarVisible: ctx.topbarVisible };
+  });
 }
 
 export { registerShellIpc, pushUrlState, pushTokenUsage };
