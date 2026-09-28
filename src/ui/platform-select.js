@@ -1,42 +1,82 @@
 // 等待 preload 注入的 API
+// 安全约束：provider 的 name/id 来自用户导入的 JS 文件（不受信输入），
+// 一律经 createElement/textContent 构建，禁止拼 innerHTML。
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function showStatus(message, isError) {
+  const listEl = document.getElementById('platform-list');
+  listEl.textContent = '';
+  listEl.appendChild(el('div', isError ? 'cuckoo-empty error' : 'cuckoo-empty', message));
+}
+
+function buildLogoBox(p) {
+  const box = el('div', 'platform-logo');
+  box.dataset.name = p.name || '';
+  const img = document.createElement('img');
+  img.src = 'logos/' + encodeURIComponent(p.id) + '.svg';
+  img.alt = (p.name || '') + ' logo';
+  img.addEventListener('error', function () {
+    const name = box.dataset.name || '?';
+    box.textContent = '';
+    box.appendChild(el('span', 'logo-fallback', name.charAt(0).toUpperCase()));
+  });
+  box.appendChild(img);
+  return box;
+}
+
+function buildProviderCard(p) {
+  const card = el('div', 'platform-card');
+  card.dataset.id = p.id;
+
+  if (p.custom) {
+    const replaceBtn = el('button', 'platform-replace', '↻');
+    replaceBtn.dataset.id = p.id;
+    replaceBtn.title = '替换';
+    const deleteBtn = el('button', 'platform-delete', '×');
+    deleteBtn.dataset.id = p.id;
+    deleteBtn.dataset.path = p.path || '';
+    deleteBtn.title = '删除';
+    card.appendChild(replaceBtn);
+    card.appendChild(deleteBtn);
+  }
+
+  card.appendChild(buildLogoBox(p));
+  card.appendChild(el('div', 'platform-name', p.name || ''));
+  card.appendChild(el('div', 'platform-desc', '点击进入'));
+  return card;
+}
+
+function buildImportCard() {
+  const card = el('div', 'platform-card');
+  card.id = 'platform-import-card';
+  const logo = el('div', 'platform-logo');
+  logo.appendChild(el('span', 'logo-plus', '+'));
+  card.appendChild(logo);
+  card.appendChild(el('div', 'platform-name', '导入 Provider'));
+  card.appendChild(el('div', 'platform-desc', '选择 JS 文件'));
+  return card;
+}
+
 async function loadPlatforms() {
   try {
     const res = await window.electronAPI.listProviders();
     const providers = (res && res.success && res.providers) || [];
     const listEl = document.getElementById('platform-list');
     if (!providers.length) {
-      listEl.innerHTML = '<div style="color:#8a90b8;font-size:14px;">暂无可用平台</div>';
+      showStatus('暂无可用平台', false);
       return;
     }
-    listEl.innerHTML = providers.map(function (p) {
-      const actions = p.custom
-        ? '<button class="platform-replace" data-id="' + p.id + '" title="替换">↻</button>' +
-          '<button class="platform-delete" data-id="' + p.id + '" data-path="' + (p.path || '') + '" title="删除">×</button>'
-        : '';
-      return '<div class="platform-card" data-id="' + p.id + '">' +
-        actions +
-        '<div class="platform-logo" data-name="' + p.name + '">' +
-          '<img src="logos/' + encodeURIComponent(p.id) + '.svg" alt="' + p.name + ' logo" />' +
-        '</div>' +
-        '<div class="platform-name">' + p.name + '</div>' +
-        '<div class="platform-desc">点击进入</div>' +
-      '</div>';
-    }).join('') +
-    '<div class="platform-card" id="platform-import-card">' +
-      '<div class="platform-logo">' +
-        '<span style="font-size:28px;color:#6d76ff;line-height:1;">+</span>' +
-      '</div>' +
-      '<div class="platform-name">导入 Provider</div>' +
-      '<div class="platform-desc">选择 JS 文件</div>' +
-    '</div>';
-
-    listEl.querySelectorAll('.platform-logo img').forEach(function (img) {
-      img.addEventListener('error', function () {
-        const container = img.parentElement;
-        const name = container.getAttribute('data-name') || '?';
-        container.innerHTML = '<span class="logo-fallback">' + name.charAt(0).toUpperCase() + '</span>';
-      });
-    });
+    listEl.textContent = '';
+    for (const p of providers) {
+      listEl.appendChild(buildProviderCard(p));
+    }
+    listEl.appendChild(buildImportCard());
 
     listEl.querySelectorAll('.platform-card[data-id]').forEach(function (card) {
       card.addEventListener('click', async function () {
@@ -109,8 +149,7 @@ async function loadPlatforms() {
       });
     }
   } catch (err) {
-    document.getElementById('platform-list').innerHTML =
-      '<div style="color:#ff6b7a;font-size:14px;">加载失败: ' + (err && err.message ? err.message : err) + '</div>';
+    showStatus('加载失败: ' + (err && err.message ? err.message : err), true);
   }
 }
 
@@ -123,8 +162,7 @@ if (window.electronAPI && window.electronAPI.listProviders) {
     if (window.electronAPI && window.electronAPI.listProviders) {
       loadPlatforms();
     } else {
-      document.getElementById('platform-list').innerHTML =
-        '<div style="color:#ff6b7a;font-size:14px;">API 未就绪，请重启应用</div>';
+      showStatus('API 未就绪，请重启应用', true);
     }
   }, 500);
 }
