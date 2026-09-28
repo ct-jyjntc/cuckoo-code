@@ -18,7 +18,12 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--ck-bg); color: var(--ck-text); overflow: hidden;
 }
-.shell { display: flex; flex-direction: column; height: 100vh; }
+/* 无界化：标题栏 / 图标栏 / 侧面板同底色、无分隔线，融为一块连续表面。
+   仅右侧 AI 页面（原生 view 圆角卡片）是独立「一块」。 */
+.shell {
+  display: flex; flex-direction: column; height: 100vh;
+  background: var(--ck-bg);
+}
 /* 标题栏（42px，全宽）+ 下方一行（图标栏 + 主区） */
 .shell-row { flex: 1; display: flex; min-height: 0; }
 
@@ -27,7 +32,6 @@ html, body {
   height: 42px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; padding: 0 10px;
-  border-bottom: 1px solid var(--ck-border);
   -webkit-app-region: drag;
   user-select: none;
 }
@@ -64,12 +68,11 @@ textarea:focus-visible {
   outline-offset: 1px;
 }
 
-/* ===== 左侧图标栏（52px） ===== */
+/* ===== 左侧图标栏（52px）——与标题栏/面板同底色，无右分隔线 ===== */
 .rail {
   width: 52px; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center;
-  background: var(--ck-bg);
-  border-right: 1px solid var(--ck-border);
+  background: transparent;
   padding: 8px 0;
 }
 .rail-main { display: flex; flex-direction: column; gap: 4px; flex: 1; }
@@ -81,7 +84,8 @@ textarea:focus-visible {
   background: transparent; color: var(--ck-text-dim);
   transition: background .15s, color .15s;
 }
-.rail-btn:hover { background: var(--ck-surface-hover); color: var(--ck-text); }
+/* 灰底 chrome 上 hover 需比 --ck-surface-hover(#ececf1) 更明显：统一用 rgba(13,13,13,.06) */
+.rail-btn:hover { background: rgba(13, 13, 13, .06); color: var(--ck-text); }
 .rail-btn.active { background: var(--ck-surface-active); color: var(--ck-primary); }
 .rail-btn svg { width: 18px; height: 18px; }
 
@@ -89,14 +93,15 @@ textarea:focus-visible {
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
 /* 导航条：默认隐藏的浮层（44px），不占布局高度，位于常驻标题栏下沿。
-   隐藏时上移收起并 visibility:hidden（避免遮挡标题栏点击）；.visible 时滑下覆盖在卡片上方。 */
+   隐藏时上移收起并 visibility:hidden（避免遮挡标题栏点击）；.visible 时滑下覆盖在卡片上方。
+   无界化：与标题栏/图标栏同底色（--ck-bg），无下边框，靠下圆角 + 柔和阴影浮在卡片之上。 */
 .navbar {
   position: fixed; top: 42px; left: 52px; right: 0; z-index: 100;
   display: flex; align-items: center; gap: 6px;
   height: 44px; padding: 0 10px;
-  background: var(--ck-surface);
-  border-bottom: 1px solid var(--ck-border);
-  box-shadow: 0 4px 12px rgba(13, 13, 13, .08);
+  background: var(--ck-bg);
+  box-shadow: 0 6px 16px rgba(13, 13, 13, .08);
+  border-radius: 0 0 12px 12px;
   transform: translateY(-100%);
   visibility: hidden;
   transition: transform .2s ease, visibility .2s;
@@ -109,14 +114,14 @@ textarea:focus-visible {
   background: transparent; color: var(--ck-text-dim);
   transition: background .15s, color .15s;
 }
-.nav-btn:hover { background: var(--ck-surface-hover); color: var(--ck-text); }
+.nav-btn:hover { background: rgba(13, 13, 13, .06); color: var(--ck-text); }
 .nav-btn:active { background: var(--ck-surface-active); }
 .nav-btn.disabled { opacity: .3; cursor: default; pointer-events: none; }
 .nav-btn svg { width: 16px; height: 16px; }
 .url-wrap {
   flex: 1; display: flex; align-items: center;
   height: 30px; padding: 0 10px; margin: 0 4px;
-  background: var(--ck-bg);
+  background: var(--ck-surface);
   border: 1px solid var(--ck-border);
   border-radius: 8px;
   transition: border-color .15s, background .15s;
@@ -137,7 +142,7 @@ textarea:focus-visible {
   display: flex; align-items: center; gap: 5px;
   height: 28px; padding: 0 10px; flex-shrink: 0;
   border: 1px solid var(--ck-border); border-radius: 999px; cursor: pointer;
-  background: var(--ck-bg); color: var(--ck-text-dim);
+  background: var(--ck-surface); color: var(--ck-text-dim);
   font-size: 12px; font-family: inherit;
   transition: background .15s, color .15s;
 }
@@ -147,19 +152,18 @@ textarea:focus-visible {
 
 /* ===== 主体：侧面板 + AI 卡片占位区 ===== */
 .body { flex: 1; display: flex; min-height: 0; }
-/* relative：面板内轻提示（.panel-toast）相对面板定位 */
+/* relative：面板内轻提示（.panel-toast）相对面板定位。
+   无界化：与 rail/标题栏同底色（透明→继承 .shell 的 --ck-bg），无右分隔线。 */
 .panel {
   position: relative;
   width: 280px; flex-shrink: 0;
   display: flex; flex-direction: column;
-  background: var(--ck-surface);
-  border-right: 1px solid var(--ck-border);
+  background: transparent;
 }
 .panel[hidden] { display: none; }
 .panel-header {
   display: flex; align-items: center; justify-content: space-between;
   height: 40px; padding: 0 12px;
-  border-bottom: 1px solid var(--ck-border);
   flex-shrink: 0;
 }
 .panel-title { font-size: 13px; font-weight: 600; color: var(--ck-text); }
@@ -180,7 +184,6 @@ textarea:focus-visible {
 .panel-content[hidden] { display: none; }
 .panel-toolbar {
   display: flex; gap: 6px; padding: 8px 12px; flex-shrink: 0;
-  border-bottom: 1px solid var(--ck-border);
 }
 .panel-btn {
   height: 28px; padding: 0 10px;
@@ -197,14 +200,15 @@ textarea:focus-visible {
   padding: 6px 12px;
 }
 .panel-empty { padding: 18px 12px; text-align: center; color: var(--ck-text-dim); font-size: 13px; }
-/* 列表项：参考 ChatGPT 侧栏（圆角 8px、hover 浅灰 --ck-surface-hover） */
+/* 列表项：参考 ChatGPT 侧栏（圆角 8px）。灰底 chrome 上 hover 需比
+   --ck-surface-hover(#ececf1) 更明显，与 .rail-btn/.nav-btn 统一用 rgba(13,13,13,.06)。 */
 .panel-item {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 10px; border-radius: 8px; cursor: pointer;
   font-size: 13px; color: var(--ck-text);
   transition: background .15s;
 }
-.panel-item:hover { background: var(--ck-surface-hover); }
+.panel-item:hover { background: rgba(13, 13, 13, .06); }
 .session-item .session-id {
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -227,13 +231,13 @@ textarea:focus-visible {
 }
 .window-item .window-del { flex-shrink: 0; font-size: 12px; color: var(--ck-text-dim); }
 .window-item .window-del:hover { color: var(--ck-danger); }
-/* 面板内轻提示（浅色 toast：白底/细边框/深文字/柔和阴影） */
+/* 面板内轻提示（浅色 toast：白底/细边框/深文字/柔和阴影）——灰底 chrome 上需跳出，保持白底 */
 .panel-toast {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
   max-width: 240px; padding: 6px 12px;
   background: var(--ck-surface); color: var(--ck-text);
   border: 1px solid var(--ck-border);
-  box-shadow: 0 8px 24px rgba(13, 13, 13, .12);
+  box-shadow: 0 8px 24px rgba(13, 13, 13, .16);
   font-size: 12px; border-radius: 8px;
   pointer-events: none; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
@@ -257,7 +261,6 @@ textarea:focus-visible {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column; gap: 6px;
   padding: 8px 12px;
-  border-top: 1px solid var(--ck-border);
 }
 .mcp-json {
   flex: 1; min-height: 120px; width: 100%; resize: none;
@@ -265,7 +268,7 @@ textarea:focus-visible {
   font-size: 11px; line-height: 1.5;
   padding: 8px;
   border: 1px solid var(--ck-border); border-radius: 8px;
-  background: var(--ck-bg); color: var(--ck-text);
+  background: var(--ck-surface); color: var(--ck-text);
   outline: none;
 }
 .mcp-json:focus { border-color: var(--ck-primary); background: var(--ck-surface); }
@@ -281,7 +284,6 @@ textarea:focus-visible {
 .task-current {
   flex-shrink: 0;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--ck-border);
   display: flex; flex-direction: column; gap: 6px;
 }
 .task-current[hidden] { display: none; }
@@ -302,7 +304,7 @@ textarea:focus-visible {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px; line-height: 1.5;
   white-space: pre-wrap; word-break: break-all;
-  background: var(--ck-bg); color: var(--ck-text);
+  background: var(--ck-surface); color: var(--ck-text);
   border: 1px solid var(--ck-border); border-radius: 8px;
 }
 .task-output[hidden] { display: none; }
@@ -336,7 +338,9 @@ textarea:focus-visible {
   word-break: break-all; white-space: pre-wrap;
 }
 
-/* ===== 设置面板（行式布局：标签左/上、控件右/下，圆角输入框） ===== */
+/* ===== 设置面板（行式布局：标签左/上、控件右/下，圆角输入框） =====
+   无界化：分组之间不再用分隔线，仅靠 12px 上下留白拉开层次；
+   输入控件改用白底（--ck-surface），否则在灰底 chrome 上会隐形。 */
 .settings-form {
   flex: 1; min-height: 0; overflow-y: auto;
   display: flex; flex-direction: column;
@@ -345,9 +349,7 @@ textarea:focus-visible {
 .settings-section {
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--ck-border);
 }
-.settings-section:last-child { border-bottom: none; }
 .settings-section-title {
   font-size: 12px; font-weight: 600; color: var(--ck-text-dim);
 }
@@ -362,7 +364,7 @@ textarea:focus-visible {
   width: 72px; flex-shrink: 0;
   height: 28px; padding: 0 8px;
   border: 1px solid var(--ck-border); border-radius: 8px;
-  background: var(--ck-bg); color: var(--ck-text);
+  background: var(--ck-surface); color: var(--ck-text);
   font-size: 12px; font-family: inherit;
   outline: none;
   transition: border-color .15s, background .15s;
@@ -378,7 +380,7 @@ textarea:focus-visible {
   width: 100%; min-height: 44px; resize: vertical;
   padding: 6px 8px;
   border: 1px solid var(--ck-border); border-radius: 8px;
-  background: var(--ck-bg); color: var(--ck-text);
+  background: var(--ck-surface); color: var(--ck-text);
   font-size: 12px; font-family: inherit; line-height: 1.5;
   outline: none;
   transition: border-color .15s, background .15s;
@@ -387,7 +389,6 @@ textarea:focus-visible {
 .settings-actions {
   display: flex; gap: 8px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--ck-border);
   flex-shrink: 0;
 }
 .settings-hint { font-size: 11px; color: var(--ck-text-dim); line-height: 1.5; }
