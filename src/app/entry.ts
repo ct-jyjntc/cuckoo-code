@@ -95,10 +95,11 @@ function createWindow(profile: any) {
     ...(defaultBounds.x !== undefined ? { x: defaultBounds.x + cascadeOffset, y: (defaultBounds.y || 0) + cascadeOffset } : {}),
     icon: resolveAsset('assets/icon.png'),
     title: 'Cuckoo Code Pro - ' + (provider ? provider.name : '未选择平台') + ' - ' + profileData.name,
-    // 无边框窗口（CherryStudio 式）：macOS 隐藏原生标题栏、红绿灯内嵌常驻标题栏；
-    // win/linux 去掉整框，由壳页面标题栏右侧自绘 min/max/close 按钮
+    // 无边框窗口（CherryStudio 式）：macOS 隐藏原生标题栏、红绿灯内嵌常驻标题栏。
+    // trafficLightPosition.y 是红绿灯容器顶边相对窗口顶部的偏移；42px 标题栏下
+    // 取 14 使 12px 按钮垂直居中（16 会明显偏下，实测反馈）。
     ...(process.platform === 'darwin'
-      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 16 } }
+      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 14 } }
       : { frame: false }),
     autoHideMenuBar: true,
     webPreferences: {
