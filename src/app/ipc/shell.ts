@@ -2,10 +2,12 @@
  * IPC：地址栏壳页面（shell）的导航控制
  * 壳页面通过 window.shellAPI 调用这些通道操作下方 WebContentsView 中的 AI 页面。
  */
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import * as windowState from '../window.js';
 import { isShellPanelId } from '../layout.js';
 import { getProvider } from '../../providers/registry.js';
+import { resolveSrc } from '../../infra/paths.js';
 import { setWindowCumulative, getTotal, cleanupSubagentKeys } from '../token-stats.js';
 
 const require = createRequire(import.meta.url);
@@ -17,6 +19,85 @@ export const ZOOM_MIN = 0.5;
 export const ZOOM_MAX = 2;
 
 export type ZoomAction = 'in' | 'out' | 'reset';
+
+// ===== 缩放 mini 菜单（原生子窗口） =====
+// 壳页面 DOM 无法覆盖 WebContentsView（原生层级高于壳 DOM），瞬态弹出菜单
+// 改为独立无边框子窗口：层级天然高于 view，且不移动/遮挡 AI 页面。
+// 菜单卡片尺寸即窗口尺寸（非 transparent 窗口：系统绘制圆角与阴影，无合成 artifact）
+const ZOOM_MENU_W = 208;
+const ZOOM_MENU_H = 96;
+// windowId -> 菜单窗（同一主窗口同时只存在一个菜单）
+const zoomMenus = new Map<number, any>();
+
+/** 关闭指定主窗口的缩放菜单（已销毁/不存在时幂等） */
+function closeZoomMenuOf(windowId: number): void {
+  const win = zoomMenus.get(windowId);
+  if (win && !win.isDestroyed()) {
+    try { win.close(); } catch (_) {}
+  }
+  zoomMenus.delete(windowId);
+}
+
+/** 在缩放按钮下方弹出 mini 菜单窗；rect 为按钮相对壳页面视口的位置（DIP） */
+function openZoomMenu(ctx: any, rect: any): void {
+  if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;
+  closeZoomMenuOf(ctx.win.id);
+
+  const { BrowserWindow, screen } = require('electron');
+  const winBounds = ctx.win.getBounds();
+  const workArea = screen.getDisplayMatching(winBounds).workArea;
+  let x = winBounds.x + (rect && typeof rect.right === 'number' ? rect.right : winBounds.width - 120) - ZOOM_MENU_W;
+  let y = winBounds.y + (rect && typeof rect.bottom === 'number' ? rect.bottom : 40) + 6;
+  // 下方放不下时向上翻（按钮上方），并夹在所在显示器工作区内
+  if (y + ZOOM_MENU_H > workArea.y + workArea.height) {
+    y = winBounds.y + (rect && typeof rect.top === 'number' ? rect.top : 12) - ZOOM_MENU_H - 6;
+  }
+  x = Math.max(workArea.x + 8, Math.min(x, workArea.x + workArea.width - ZOOM_MENU_W - 8));
+  y = Math.max(workArea.y + 8, y);
+  x = Math.round(x); y = Math.round(y);
+
+  const menuWin = new BrowserWindow({
+    parent: ctx.win,
+    width: ZOOM_MENU_W, height: ZOOM_MENU_H,
+    // 非 transparent：由系统绘制窗口圆角与阴影（macOS 原生观感），
+    // 规避 transparent + backdrop-filter + CSS 变换的合成器重影 artifact
+    frame: false,
+    backgroundColor: '#ffffff',
+    resizable: false, movable: false,
+    minimizable: false, maximizable: false, fullscreenable: false,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(import.meta.dirname, '..', 'zoom-menu-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  zoomMenus.set(ctx.win.id, menuWin);
+  menuWin.loadFile(resolveSrc('ui/zoom-menu.html'));
+
+  menuWin.once('ready-to-show', () => {
+    if (menuWin.isDestroyed()) return;
+    // 显式定位：frameless 子窗口构造参数中的 x/y 在部分平台/时机下不可靠
+    menuWin.setPosition(x, y, false);
+    menuWin.show();
+    menuWin.focus();
+  });
+  // 点击外部（含主窗口/其他窗口）→ 失焦即关
+  menuWin.on('blur', () => closeZoomMenuOf(ctx.win.id));
+  menuWin.once('closed', () => {
+    if (zoomMenus.get(ctx.win.id) === menuWin) zoomMenus.delete(ctx.win.id);
+  });
+  menuWin.webContents.on('did-finish-load', () => {
+    try { menuWin.webContents.send('zoom-menu-init', { zoomFactor: ctx.zoomFactor || 1 }); } catch (_) {}
+  });
+
+  // 主窗口移动/缩放/关闭时菜单位置失真，一并收起
+  ctx.win.once('move', () => closeZoomMenuOf(ctx.win.id));
+  ctx.win.once('resize', () => closeZoomMenuOf(ctx.win.id));
+  ctx.win.once('closed', () => closeZoomMenuOf(ctx.win.id));
+}
 
 /** 把缩放动作应用到窗口的 AI 页面 view，并把最新倍率广播给壳页面标题栏 */
 function applyZoomToContext(ctx: any, action: ZoomAction): number {
@@ -35,6 +116,11 @@ function applyZoomToContext(ctx: any, action: ZoomAction): number {
   }
   if (ctx.win && !ctx.win.isDestroyed()) {
     try { ctx.win.webContents.send('shell-zoom-updated', { zoomFactor: next }); } catch (_) {}
+  }
+  // 菜单窗打开时（快捷键触发的缩放）同步其倍率显示
+  const menuWin = zoomMenus.get(ctx.win ? ctx.win.id : -1);
+  if (menuWin && !menuWin.isDestroyed()) {
+    try { menuWin.webContents.send('zoom-menu-zoom', { zoomFactor: next }); } catch (_) {}
   }
   return next;
 }
@@ -262,6 +348,34 @@ function registerShellIpc(): void {
     const ctx = windowState.getContextByWebContents(event.sender);
     const zoomFactor = ctx && typeof ctx.zoomFactor === 'number' && ctx.zoomFactor > 0 ? ctx.zoomFactor : 1;
     return { success: true, zoomFactor };
+  });
+
+  // 标题栏缩放按钮 → 弹出 mini 菜单窗（原生子窗口，层级高于 AI 页面 view）
+  ipcMain.handle('shell-zoom-menu-open', async (event: any, { rect }: any = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx) return { success: false, error: '窗口上下文不存在' };
+    openZoomMenu(ctx, rect);
+    return { success: true };
+  });
+
+  // mini 菜单窗点击项：应用缩放；+/- 保持窗口打开（支持连续缩放，失焦/外部点击关闭），
+  // reset 后关闭（操作已完成，与 macOS 分段控件的交互惯例一致）
+  ipcMain.handle('zoom-menu-action', async (event: any, { action }: any = {}) => {
+    if (action !== 'in' && action !== 'out' && action !== 'reset') {
+      return { success: false, error: '未知缩放动作' };
+    }
+    const { BrowserWindow } = require('electron');
+    const senderWin = BrowserWindow.fromWebContents(event.sender);
+    let windowId: number | null = null;
+    for (const [id, menuWin] of zoomMenus) {
+      if (menuWin === senderWin) { windowId = id; break; }
+    }
+    if (windowId === null) return { success: false, error: '菜单窗不存在' };
+    const ctx = windowState.getWindowContext(windowId);
+    if (!ctx) return { success: false, error: '窗口上下文不存在' };
+    applyZoomToContext(ctx, action);
+    if (action === 'reset') closeZoomMenuOf(windowId);
+    return { success: true };
   });
 }
 
