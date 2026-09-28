@@ -98,7 +98,7 @@ function createWindow(profile: any) {
     // 无边框窗口（CherryStudio 式）：macOS 隐藏原生标题栏、红绿灯内嵌常驻标题栏；
     // win/linux 去掉整框，由壳页面标题栏右侧自绘 min/max/close 按钮
     ...(process.platform === 'darwin'
-      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 14 } }
+      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 16 } }
       : { frame: false }),
     autoHideMenuBar: true,
     webPreferences: {
