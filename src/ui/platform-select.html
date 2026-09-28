@@ -10,10 +10,33 @@
   <div class="container">
     <div class="title">Cuckoo Code</div>
     <div class="subtitle">选择要使用的 AI 平台</div>
+    <div class="quick-actions">
+      <div class="quick-actions-title">快速操作</div>
+      <div class="quick-actions-row">
+        <button id="ps-btn-init-project" class="quick-btn primary">初始化项目</button>
+        <button id="ps-btn-change-dir" class="quick-btn" title="修改项目目录（不重新发送初始提示）">修改项目目录</button>
+      </div>
+      <div class="quick-dir">
+        <span class="quick-dir-label">当前项目目录</span>
+        <span id="ps-project-dir" class="quick-dir-path">未选择</span>
+      </div>
+      <div id="ps-dir-hint" class="quick-dir-hint">尚未选择项目目录，点击「初始化项目」选择目录并开始</div>
+    </div>
     <div id="platform-list" class="platform-list">
       <div class="cuckoo-empty">加载中...</div>
     </div>
   </div>
-  <script src="./platform-select.js"></script>
+  <div id="ps-toast" class="ps-toast" hidden></div>
+  <script type="module">
+    import { initPlatformSelect } from './platform-select.js';
+    if (window.electronAPI && window.electronAPI.listProviders) {
+      initPlatformSelect(window.electronAPI, document);
+    } else {
+      // preload 可能还没注入完成，稍等再试
+      setTimeout(function () {
+        initPlatformSelect(window.electronAPI || {}, document);
+      }, 500);
+    }
+  </script>
 </body>
 </html>

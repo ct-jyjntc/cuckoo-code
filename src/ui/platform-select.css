@@ -23,7 +23,7 @@ body {
 
 .container {
   text-align: center;
-  padding: 40px;
+  padding: 28px;
 }
 
 .title {
@@ -37,7 +37,7 @@ body {
 .subtitle {
   font-size: 14px;
   color: var(--ck-text-dim);
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 .cuckoo-empty { color: var(--ck-text-dim); font-size: 14px; }
@@ -53,7 +53,7 @@ body {
 .platform-card {
   position: relative;
   width: 200px;
-  padding: 28px 20px;
+  padding: 24px 18px;
   background: var(--ck-surface);
   border: 1px solid var(--ck-border);
   border-radius: 16px;
@@ -162,4 +162,121 @@ body {
   font-size: 12px;
   color: var(--ck-text-dim);
   margin-top: 6px;
+}
+
+/* ===== 快速操作区 ===== */
+.quick-actions {
+  width: 480px;
+  max-width: 90vw;
+  margin: 0 auto 28px;
+  padding: 16px 20px;
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  text-align: left;
+}
+
+.quick-actions-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ck-text-dim);
+  margin-bottom: 10px;
+}
+
+.quick-actions-row {
+  display: flex;
+  gap: 10px;
+}
+
+.quick-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--ck-border);
+  border-radius: 8px;
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.quick-btn:hover {
+  background: var(--ck-surface-hover);
+}
+
+.quick-btn.primary {
+  background: var(--ck-primary);
+  border-color: var(--ck-primary);
+  color: #fff;
+}
+
+.quick-btn.primary:hover {
+  background: #5c66f0;
+  border-color: #5c66f0;
+}
+
+.quick-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.quick-dir {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.quick-dir-label {
+  font-size: 12px;
+  color: var(--ck-text-dim);
+  flex-shrink: 0;
+}
+
+.quick-dir-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--ck-text);
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.quick-dir-hint {
+  font-size: 11px;
+  color: var(--ck-text-dim);
+  margin-top: 6px;
+}
+
+.quick-dir-hint[hidden] {
+  display: none;
+}
+
+/* 页内轻提示（浅色 toast） */
+.ps-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: 420px;
+  padding: 8px 16px;
+  background: var(--ck-surface);
+  color: var(--ck-text);
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(13, 13, 13, 0.12);
+  font-size: 13px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ps-toast.error {
+  color: #d5463c;
+  border-color: rgba(213, 70, 60, 0.35);
+}
+
+.ps-toast[hidden] {
+  display: none;
 }

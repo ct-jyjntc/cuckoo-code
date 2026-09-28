@@ -28,6 +28,9 @@ const electronAPI: ElectronAPI = {
   updateProjectDir: () => {
     return ipcRenderer.invoke('init-project', { skipPrompt: true });
   },
+  getProjectDir: () => {
+    return ipcRenderer.invoke('get-project-dir');
+  },
   executeTool: (toolName: string, params: Record<string, unknown>, callId: string) => {
     return ipcRenderer.invoke('execute-tool', { toolName, params, callId });
   },

@@ -20,6 +20,12 @@ export interface InitProjectResult {
   message: string;
 }
 
+/** get-project-dir：当前窗口的项目目录（未选择时为 null） */
+export interface GetProjectDirResult {
+  success: boolean;
+  projectDir: string | null;
+}
+
 /** execute-tool：工具执行结果（data 为工具自定义载荷） */
 export interface ExecuteToolResult {
   callId: string;
@@ -167,6 +173,7 @@ export interface ElectronAPI {
   executeCommand(command: string, id: string): Promise<ExecuteCommandResult>;
   initProject(projectDir?: string | null, isCompaction?: boolean, extraPrompt?: string, noDialog?: boolean): Promise<InitProjectResult>;
   updateProjectDir(): Promise<InitProjectResult>;
+  getProjectDir(): Promise<GetProjectDirResult>;
   executeTool(toolName: string, params: Record<string, unknown>, callId: string): Promise<ExecuteToolResult>;
   executeJs(code: string, callId: string): Promise<ExecuteJsResult>;
   sendEnterToChat(): Promise<boolean>;
