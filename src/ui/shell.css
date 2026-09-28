@@ -7,6 +7,8 @@
   --ck-primary: #6d76ff;
   --ck-text: #0d0d0d;
   --ck-text-dim: #6e6e80;
+  --ck-success: #3d9e63;
+  --ck-warning: #c0a060;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -69,7 +71,8 @@ html, body {
 }
 .url-wrap:hover { background: var(--ck-surface-hover); }
 .url-wrap:focus-within { border-color: var(--ck-primary); background: var(--ck-surface); }
-.lock { width: 12px; height: 12px; flex-shrink: 0; margin-right: 8px; color: #3d9e63; }
+.lock { width: 12px; height: 12px; flex-shrink: 0; margin-right: 8px; color: var(--ck-success); }
+.lock.insecure { color: var(--ck-warning); }
 .url-input {
   flex: 1; border: none; outline: none; background: transparent;
   color: var(--ck-text); font-size: 13px; font-family: inherit;

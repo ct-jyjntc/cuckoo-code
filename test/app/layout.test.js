@@ -59,7 +59,7 @@ describe('SHELL_PANEL_IDS / isShellPanelId()', () => {
   it('已知面板集合与 shell.html 图标栏一致', () => {
     assert.deepStrictEqual(
       [...SHELL_PANEL_IDS],
-      ['home', 'chat', 'window', 'mcp', 'task', 'settings', 'project']
+      ['chat', 'window', 'mcp', 'task', 'settings', 'project']
     );
   });
 
@@ -68,6 +68,7 @@ describe('SHELL_PANEL_IDS / isShellPanelId()', () => {
       assert.strictEqual(isShellPanelId(id), true);
     }
     assert.strictEqual(isShellPanelId('sessions'), false);
+    assert.strictEqual(isShellPanelId('home'), false);
     assert.strictEqual(isShellPanelId(''), false);
     assert.strictEqual(isShellPanelId(null), false);
     assert.strictEqual(isShellPanelId(undefined), false);

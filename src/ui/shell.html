@@ -9,7 +9,7 @@
   <div class="shell">
     <aside class="rail">
       <nav class="rail-main">
-        <button class="rail-btn" data-panel="home" title="平台主页">
+        <button class="rail-btn" id="rail-btn-home" title="平台主页">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
         </button>
         <button class="rail-btn" data-panel="chat" title="会话">
@@ -80,7 +80,6 @@
               </div>
               <div class="panel-list" id="shell-window-list"></div>
             </div>
-            <div class="panel-content" data-panel-content="home" hidden></div>
             <!-- MCP 面板：server 列表 + 用户级配置 JSON 编辑 + 保存/通知 AI -->
             <div class="panel-content" data-panel-content="mcp" hidden>
               <div class="panel-toolbar">

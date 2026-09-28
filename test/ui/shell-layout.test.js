@@ -36,7 +36,7 @@ function makeApi() {
     back: () => {},
     forward: () => {},
     reload: () => {},
-    home: () => {},
+    home: () => { calls.push(['home']); },
     setPanelOpen: (panelId) => { calls.push(['setPanelOpen', panelId]); },
     onUrlUpdated: (cb) => { handlers.url = cb; },
     onTokenUpdated: (cb) => { handlers.token = cb; },
@@ -66,8 +66,10 @@ describe('图标栏', () => {
     assert.strictEqual(main.length, 5);
     assert.strictEqual(bottom.length, 2);
 
-    const ids = Array.from(main).map((b) => b.dataset.panel);
-    assert.deepStrictEqual(ids, ['home', 'chat', 'window', 'mcp', 'task']);
+    // 首位是 home 导航按钮（id 标识，不是面板）；其余 4 个为面板按钮
+    assert.strictEqual(main[0].id, 'rail-btn-home');
+    const ids = Array.from(main).slice(1).map((b) => b.dataset.panel);
+    assert.deepStrictEqual(ids, ['chat', 'window', 'mcp', 'task']);
     const bottomIds = Array.from(bottom).map((b) => b.dataset.panel);
     assert.deepStrictEqual(bottomIds, ['settings', 'project']);
 
@@ -82,6 +84,15 @@ describe('图标栏', () => {
   it('图标 title 依次为 平台主页/会话/窗口/MCP/任务/设置/项目', () => {
     const titles = Array.from(document.querySelectorAll('.rail-btn')).map((b) => b.title);
     assert.deepStrictEqual(titles, ['平台主页', '会话', '窗口', 'MCP', '任务', '设置', '项目']);
+  });
+
+  it('点击 home 图标：调用 api.home() 导航，不展开面板、不高亮、无对应面板容器', () => {
+    document.getElementById('rail-btn-home').click();
+
+    assert.deepStrictEqual(api.calls, [['home']]);
+    assert.strictEqual(document.getElementById('side-panel').hidden, true);
+    assert.strictEqual(document.querySelectorAll('.rail-btn.active').length, 0);
+    assert.strictEqual(document.querySelector('.panel-content[data-panel-content="home"]'), null);
   });
 });
 

@@ -1,6 +1,6 @@
 /**
  * shell 侧栏面板内容（ES Module，供 happy-dom 测试导入）。
- * 承载「会话」「窗口」「MCP」「设置」「项目」五个面板，逻辑对照迁移自 overlay 侧
+ * 承载「会话」「窗口」「MCP」「任务」「设置」「项目」六个面板，逻辑对照迁移自 overlay 侧
  * session-list.ts、panels/window-manager.ts、panels/mcp-manager.ts、panels/settings.ts、
  * project-dir.ts、auto-compact.ts（功能等价）。
  * shell 是 file:// 自有页面，但会话 id / profile 名 / 项目目录等外部数据

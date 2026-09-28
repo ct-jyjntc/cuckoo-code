@@ -4,9 +4,8 @@
  */
 'use strict';
 
-/** 面板 id → 面板名（标题栏显示） */
+/** 面板 id → 面板名（标题栏显示）；rail 首位的 home 图标是导航动作，不是面板 */
 const PANEL_NAMES = {
-  home: '平台主页',
   chat: '会话',
   window: '窗口',
   mcp: 'MCP',
@@ -45,7 +44,7 @@ export function initShell(api, doc, hooks) {
       setBtn(btnBack, data.canGoBack);
       setBtn(btnForward, data.canGoForward);
       const lock = doc.getElementById('lock');
-      if (lock) lock.style.color = /^https:/i.test(currentUrl) ? '#3d9e63' : '#c0a060';
+      if (lock) lock.classList.toggle('insecure', !/^https:/i.test(currentUrl));
     });
   }
 
@@ -159,6 +158,12 @@ export function initShell(api, doc, hooks) {
   btnForward.addEventListener('click', function () { if (api.forward) api.forward(); });
   doc.getElementById('btn-reload').addEventListener('click', function () { if (api.reload) api.reload(); });
   doc.getElementById('btn-home').addEventListener('click', function () { if (api.home) api.home(); });
+
+  // rail 首位的 home 图标：与顶栏主页按钮同一动作（导航回平台主页），不展开面板、不高亮
+  const railHome = doc.getElementById('rail-btn-home');
+  if (railHome) {
+    railHome.addEventListener('click', function () { if (api.home) api.home(); });
+  }
 
   return {
     getActivePanel: function () { return activePanel; },
