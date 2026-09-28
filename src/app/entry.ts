@@ -260,6 +260,18 @@ function createWindow(profile: any) {
   view.webContents.on('before-input-event', (_event: any, input: any) => {
     if (input.key === 'F12') {
       view.webContents.toggleDevTools();
+      return;
+    }
+    if (input.type !== 'keyDown') return;
+    // 原 overlay 快捷键迁入 shell（Task 10）：AI 页面聚焦时按键落在 view，
+    // 这里 relay 给壳页面由其面板状态机处理。不 preventDefault，页面自身行为保留。
+    const ctx = windowState.getContextByWebContents(view.webContents);
+    if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;
+    if (input.control && input.shift && (input.key === 'C' || input.key === 'c')) {
+      ctx.win.webContents.send('shell-toggle-panel');
+    } else if (input.key === 'Escape' && ctx.panelId) {
+      // 仅面板打开时收起；面板关闭时 Esc 属于页面自己
+      ctx.win.webContents.send('shell-close-panel');
     }
   });
 

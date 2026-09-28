@@ -66,10 +66,12 @@ export function initShell(api, doc, hooks) {
   // ===== 面板切换状态机 =====
   const panel = doc.getElementById('side-panel');
   const panelTitle = doc.getElementById('panel-title');
+  let lastPanel = null;
 
   function setActivePanel(panelId, opts) {
     const quiet = !!(opts && opts.quiet);
     activePanel = panelId;
+    if (panelId) lastPanel = panelId;
     const buttons = doc.querySelectorAll('.rail-btn');
     for (const btn of buttons) {
       btn.classList.toggle('active', btn.dataset.panel === panelId);
@@ -80,6 +82,33 @@ export function initShell(api, doc, hooks) {
     // quiet：主进程回放面板状态（壳重载后恢复），状态已一致，不再回传
     if (!quiet && api.setPanelOpen) api.setPanelOpen(panelId);
   }
+
+  // 原 overlay 的 Ctrl+Shift+C / Esc 快捷键迁入 shell（Task 10）：
+  // Ctrl+Shift+C 展开（上次打开的面板，默认会话）/收起；Esc 收起
+  function togglePanel() {
+    setActivePanel(activePanel ? null : (lastPanel || 'chat'));
+  }
+
+  function isEditableTarget(target) {
+    if (!target || !target.tagName) return false;
+    const tag = target.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+  }
+
+  doc.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+      e.preventDefault();
+      togglePanel();
+      return;
+    }
+    if (e.key === 'Escape' && activePanel && !isEditableTarget(e.target)) {
+      setActivePanel(null);
+    }
+  });
+
+  // AI 页面聚焦时按键落在 view，由主进程 before-input-event relay 回来
+  if (api.onTogglePanel) api.onTogglePanel(function () { togglePanel(); });
+  if (api.onClosePanel) api.onClosePanel(function () { if (activePanel) setActivePanel(null); });
 
   const railButtons = doc.querySelectorAll('.rail-btn[data-panel]');
   for (const btn of railButtons) {

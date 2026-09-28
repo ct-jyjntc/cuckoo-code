@@ -24,9 +24,12 @@
 | 文件 | 职责 |
 |---|---|
 | `entry.ts` | 应用入口：userData 目录、窗口创建（壳+view）、应用菜单、单实例锁 |
-| `shell-preload.ts` | 地址栏壳页面的 preload，暴露 `window.shellAPI` |
+| `shell-preload.ts` | 壳页面 preload，暴露 `window.shellAPI`（导航 + 面板 + 快捷键 relay） |
 | `window.ts` | 多窗口管理：`WindowContext { win, view, profileId, providerId, sessionStore }`；`getContextByWebContents` 同时匹配 win 与 view |
+| `layout.ts` | 壳布局纯函数：图标栏 52 / 面板 280 / 圆角卡片 bounds；`SHELL_PANEL_IDS` 校验 |
 | `profile.ts` | 窗口 Profile（名称、providerId、partition）的读写 |
+| `settings-store.ts` | 设置主进程持久化（`userData/settings.json`，全局共享）；旧 localStorage 键首启迁移 |
+| `tool-activity.ts` | 工具活动历史（主进程内存，按窗口隔离，上限 50），供壳任务面板拉取 |
 | `ipc/index.ts` | IPC 注册总入口，编排下列子注册器 |
 | `ipc/project.ts` | `init-project` |
 | `ipc/session.ts` | `list-sessions` / `navigate-session`（导航走 `ctx.view`） |
@@ -142,8 +145,9 @@ UI 改版（Task 6-8）后，面板/悬浮球/弹窗已迁往 shell 侧栏（`sr
 | `updater/index.ts` | 自动更新（electron-updater） |
 | `types/third-party.d.ts` | 无 @types 的第三方模块声明（turndown 等） |
 | `prompt/*.md` | 各平台系统提示词模板（含占位符） |
-| `ui/shell.html` | 地址栏壳页面 |
-| `ui/platform-select.html` | 首次选择平台页面 |
+| `ui/shell.html/css/js` | 壳页面骨架：左侧图标栏、顶栏、侧面板状态机（Ctrl+Shift+C / Esc 折叠展开） |
+| `ui/panels.js` | 侧面板内容：主页 / 会话 / 窗口 / MCP / 任务 / 设置 / 项目 |
+| `ui/platform-select.html/css/js` | 首次选择平台页面（浅色主题；导入/替换/删除自定义 Provider，DOM 安全构建） |
 
 ## scripts/
 

@@ -74,6 +74,13 @@ const shellAPI = {
   onPanelRestore: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-panel-restore', (_e: any, data: any) => cb(data));
   },
+  // 快捷键 relay：AI 页面聚焦时 Ctrl+Shift+C / Esc 由主进程 before-input-event 转发到壳
+  onTogglePanel: (cb: () => void) => {
+    ipcRenderer.on('shell-toggle-panel', () => cb());
+  },
+  onClosePanel: (cb: () => void) => {
+    ipcRenderer.on('shell-close-panel', () => cb());
+  },
 };
 
 try {

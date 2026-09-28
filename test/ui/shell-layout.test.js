@@ -40,6 +40,8 @@ function makeApi() {
     setPanelOpen: (panelId) => { calls.push(['setPanelOpen', panelId]); },
     onUrlUpdated: (cb) => { handlers.url = cb; },
     onTokenUpdated: (cb) => { handlers.token = cb; },
+    onTogglePanel: (cb) => { handlers.togglePanel = cb; },
+    onClosePanel: (cb) => { handlers.closePanel = cb; },
   };
   return api;
 }
@@ -154,6 +156,60 @@ describe('token 徽章', () => {
   it('徽章含 SVG 图标而非 emoji', () => {
     const badge = document.getElementById('token-badge');
     assert.strictEqual(badge.querySelector('svg') !== null, true);
+  });
+});
+
+describe('快捷键（原 overlay Ctrl+Shift+C / Esc 迁入 shell）', () => {
+  function pressShortcut(opts) {
+    document.dispatchEvent(new KeyboardEvent('keydown', Object.assign({ bubbles: true }, opts)));
+  }
+
+  it('Ctrl+Shift+C：面板关闭时展开默认面板（会话）', () => {
+    pressShortcut({ key: 'C', ctrlKey: true, shiftKey: true });
+    assert.deepStrictEqual(api.calls, [['setPanelOpen', 'chat']]);
+    assert.strictEqual(document.getElementById('side-panel').hidden, false);
+    assert.strictEqual(document.getElementById('panel-title').textContent, '会话');
+  });
+
+  it('Ctrl+Shift+C：面板打开时收起', () => {
+    document.querySelector('.rail-btn[data-panel="mcp"]').click();
+    pressShortcut({ key: 'C', ctrlKey: true, shiftKey: true });
+    assert.deepStrictEqual(api.calls, [['setPanelOpen', 'mcp'], ['setPanelOpen', null]]);
+    assert.strictEqual(document.getElementById('side-panel').hidden, true);
+  });
+
+  it('Ctrl+Shift+C 重新展开时回到上次打开的面板', () => {
+    document.querySelector('.rail-btn[data-panel="mcp"]').click();
+    pressShortcut({ key: 'C', ctrlKey: true, shiftKey: true });
+    pressShortcut({ key: 'C', ctrlKey: true, shiftKey: true });
+    assert.deepStrictEqual(api.calls, [['setPanelOpen', 'mcp'], ['setPanelOpen', null], ['setPanelOpen', 'mcp']]);
+    assert.strictEqual(document.getElementById('panel-title').textContent, 'MCP');
+  });
+
+  it('Esc：面板打开时收起', () => {
+    document.querySelector('.rail-btn[data-panel="chat"]').click();
+    pressShortcut({ key: 'Escape' });
+    assert.deepStrictEqual(api.calls, [['setPanelOpen', 'chat'], ['setPanelOpen', null]]);
+  });
+
+  it('Esc：面板已关闭时不产生调用', () => {
+    pressShortcut({ key: 'Escape' });
+    assert.deepStrictEqual(api.calls, []);
+  });
+
+  it('Esc：焦点在输入框时不收起面板（地址栏自己的 Esc 归它管）', () => {
+    document.querySelector('.rail-btn[data-panel="chat"]').click();
+    const input = document.getElementById('url-input');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.deepStrictEqual(api.calls, [['setPanelOpen', 'chat']]);
+    assert.strictEqual(document.getElementById('side-panel').hidden, false);
+  });
+
+  it('主进程 relay：onTogglePanel / onClosePanel 复用同一面板状态机', () => {
+    api.handlers.togglePanel();
+    assert.deepStrictEqual(api.calls, [['setPanelOpen', 'chat']]);
+    api.handlers.closePanel();
+    assert.deepStrictEqual(api.calls, [['setPanelOpen', 'chat'], ['setPanelOpen', null]]);
   });
 });
 
