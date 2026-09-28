@@ -37,11 +37,17 @@ describe('decideViewKeyAction', () => {
     assert.strictEqual(decideViewKeyAction({ key: 'l', control: true }, 'chat'), 'focus-url');
   });
 
-  it('Ctrl+Shift+L 不触发 focus-url', () => {
-    assert.strictEqual(decideViewKeyAction({ key: 'L', control: true, shift: true }, null), null);
+  it('Cmd+L（meta）→ focus-url（macOS 惯例）', () => {
+    assert.strictEqual(decideViewKeyAction({ key: 'L', meta: true }, null), 'focus-url');
+    assert.strictEqual(decideViewKeyAction({ key: 'l', meta: true }, 'chat'), 'focus-url');
   });
 
-  it('缺 ctrl 的 L 不触发', () => {
+  it('Ctrl+Shift+L / Cmd+Shift+L 不触发 focus-url', () => {
+    assert.strictEqual(decideViewKeyAction({ key: 'L', control: true, shift: true }, null), null);
+    assert.strictEqual(decideViewKeyAction({ key: 'L', meta: true, shift: true }, null), null);
+  });
+
+  it('缺 ctrl/meta 的 L 不触发', () => {
     assert.strictEqual(decideViewKeyAction({ key: 'L' }, 'chat'), null);
     assert.strictEqual(decideViewKeyAction({ key: 'l', shift: true }, null), null);
   });

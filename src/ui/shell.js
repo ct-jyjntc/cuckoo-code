@@ -154,8 +154,8 @@ export function initShell(api, doc, hooks) {
       togglePanel();
       return;
     }
-    // Ctrl+L：无论顶栏是否可见都唤出并聚焦 URL 输入框（浏览器惯例键，拦截）
-    if (e.ctrlKey && !e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+    // Ctrl+L / Cmd+L：无论顶栏是否可见都唤出并聚焦 URL 输入框（浏览器惯例键，拦截）
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'L' || e.key === 'l')) {
       e.preventDefault();
       focusUrlInput();
       return;
@@ -211,6 +211,9 @@ export function initShell(api, doc, hooks) {
     api.onPanelRestore(function (data) {
       const panelId = data && data.panelId ? data.panelId : null;
       setActivePanel(panelId, { quiet: true });
+      // 顶栏可见性一并回放：壳重载丢失 .visible 类，需与主进程保留的 view 下移状态对齐。
+      // showTopbar 会回传 setTopbarVisible(true)，主进程侧是幂等赋值，无环路风险。
+      if (data && data.topbarVisible) showTopbar();
     });
   }
 

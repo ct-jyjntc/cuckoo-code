@@ -148,7 +148,11 @@ function createWindow(profile: any) {
     // 回放面板状态 + 项目目录：壳页面重载后其 UI 状态丢失，需与主进程 ctx.panelId 重新对齐
     try {
       const ctx = windowState.getWindowContext(mainWindow.id);
-      mainWindow.webContents.send('shell-panel-restore', { panelId: (ctx && ctx.panelId) || null });
+      mainWindow.webContents.send('shell-panel-restore', {
+        panelId: (ctx && ctx.panelId) || null,
+        // 顶栏滑出期间壳重载会丢 .visible 类但主进程仍留着 view 下移的 44px 死区，一并回放
+        topbarVisible: !!(ctx && ctx.topbarVisible),
+      });
       const dir = (ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir) || null;
       mainWindow.webContents.send('shell-project-dir-updated', dir);
     } catch (_) {}

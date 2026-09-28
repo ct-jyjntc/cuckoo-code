@@ -44,6 +44,7 @@ function makeApi() {
     onTogglePanel: (cb) => { handlers.togglePanel = cb; },
     onClosePanel: (cb) => { handlers.closePanel = cb; },
     onFocusUrl: (cb) => { handlers.focusUrl = cb; },
+    onPanelRestore: (cb) => { handlers.panelRestore = cb; },
   };
   return api;
 }
@@ -299,6 +300,26 @@ describe('顶栏沉浸式自动隐藏', () => {
     assert.strictEqual(e.defaultPrevented, true);
     assert.strictEqual(topbar().classList.contains('visible'), true);
     assert.strictEqual(document.activeElement === urlInput(), true);
+  });
+
+  it('Cmd+L（壳聚焦，macOS 惯例）：同样唤出顶栏并聚焦 URL 输入框', () => {
+    const e = new KeyboardEvent('keydown', { key: 'l', metaKey: true, bubbles: true, cancelable: true });
+    document.dispatchEvent(e);
+    assert.strictEqual(e.defaultPrevented, true);
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(document.activeElement === urlInput(), true);
+  });
+
+  it('壳重载回放：panelRestore 带 topbarVisible=true 时恢复顶栏可见', () => {
+    api.handlers.panelRestore({ panelId: null, topbarVisible: true });
+    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
+  });
+
+  it('壳重载回放：topbarVisible=false 时顶栏保持隐藏、不通知主进程', () => {
+    api.handlers.panelRestore({ panelId: null, topbarVisible: false });
+    assert.strictEqual(topbar().classList.contains('visible'), false);
+    assert.deepStrictEqual(api.calls, []);
   });
 
   it('主进程 relay：onFocusUrl 唤出顶栏并聚焦 URL 输入框', () => {
