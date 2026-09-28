@@ -8,14 +8,20 @@ const require = createRequire(import.meta.url);
 const { contextBridge, ipcRenderer } = require('electron');
 
 const shellAPI = {
+  // 运行平台（壳页面据此决定 mac 红绿灯留白 / win32 自绘窗口控制按钮）
+  platform: process.platform,
   navigate: (url: string) => ipcRenderer.invoke('shell-navigate', { url }),
   back: () => ipcRenderer.invoke('shell-back'),
   forward: () => ipcRenderer.invoke('shell-forward'),
   reload: () => ipcRenderer.invoke('shell-reload'),
   home: () => ipcRenderer.invoke('shell-home'),
   setPanelOpen: (panelId: string | null) => ipcRenderer.invoke('shell-panel-state', { panelId }),
-  // 顶栏浮层开关：主进程据此临时下移/恢复 view（WebContentsView 原生层级高于壳 DOM）
+  // 导航条浮层开关：主进程据此临时下移/恢复 view（WebContentsView 原生层级高于壳 DOM）
   setTopbarVisible: (visible: boolean) => ipcRenderer.invoke('shell-topbar-visible', { visible }),
+  // 无边框窗口自绘控制按钮（仅 win32 渲染；macOS 用系统红绿灯）
+  windowMinimize: () => ipcRenderer.invoke('shell-window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('shell-window-maximize'),
+  windowClose: () => ipcRenderer.invoke('shell-window-close'),
   onUrlUpdated: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-url-updated', (_e: any, data: any) => cb(data));
   },
@@ -83,7 +89,7 @@ const shellAPI = {
   onClosePanel: (cb: () => void) => {
     ipcRenderer.on('shell-close-panel', () => cb());
   },
-  // Ctrl+L relay：唤出顶栏并聚焦 URL 输入框
+  // Ctrl+L relay：唤出导航条并聚焦 URL 输入框
   onFocusUrl: (cb: () => void) => {
     ipcRenderer.on('shell-focus-url', () => cb());
   },

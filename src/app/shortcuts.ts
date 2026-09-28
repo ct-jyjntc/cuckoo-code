@@ -17,7 +17,7 @@ export type ViewKeyAction = 'toggle-panel' | 'close-panel' | 'focus-url' | null;
 /**
  * 判定 view 内按键应触发的面板动作：
  * - Ctrl+Shift+C → 切换面板（展开/收起），始终拦截
- * - Ctrl+L / Cmd+L → 唤出顶栏并聚焦 URL 输入框（浏览器惯例键，AI 页面自身不用，relay 时 preventDefault）
+ * - Ctrl+L / Cmd+L → 唤出导航条并聚焦 URL 输入框（浏览器惯例键，AI 页面自身不用，relay 时 preventDefault）
  * - Esc 且面板打开 → 收起面板，拦截（否则菜单「停止加载」会与收起叠加触发）
  * - 其余（含面板关闭时的 Esc）→ null，放行页面自身行为
  */

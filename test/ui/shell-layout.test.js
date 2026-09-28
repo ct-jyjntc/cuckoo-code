@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 'use strict';
 /**
- * src/ui/shell.html + shell.js 骨架测试。
- * 覆盖：图标栏渲染、面板展开/收起状态切换、token 徽章更新。
+ * src/ui/shell.html + shell.js 骨架测试（无边框改版）。
+ * 覆盖：常驻标题栏（标题/按钮/win 控制）、图标栏渲染、面板展开/收起状态切换、
+ * token 徽章更新、导航条滑出机制。
  * 标记 HTML 直接读自 src/ui/shell.html，避免测试与实现脱节。
  */
 import { describe, it, beforeEach, afterEach, vi } from 'vitest';
@@ -39,6 +40,9 @@ function makeApi() {
     home: () => { calls.push(['home']); },
     setPanelOpen: (panelId) => { calls.push(['setPanelOpen', panelId]); },
     setTopbarVisible: (visible) => { calls.push(['setTopbarVisible', visible]); },
+    windowMinimize: () => { calls.push(['windowMinimize']); },
+    windowMaximize: () => { calls.push(['windowMaximize']); },
+    windowClose: () => { calls.push(['windowClose']); },
     onUrlUpdated: (cb) => { handlers.url = cb; },
     onTokenUpdated: (cb) => { handlers.token = cb; },
     onTogglePanel: (cb) => { handlers.togglePanel = cb; },
@@ -53,6 +57,7 @@ let ctx;
 let api;
 
 beforeEach(() => {
+  document.body.className = '';
   ctx = setupDom(readShellBody());
   api = makeApi();
   initShell(api, document);
@@ -60,6 +65,75 @@ beforeEach(() => {
 
 afterEach(() => {
   ctx.cleanup();
+  document.body.className = '';
+});
+
+describe('常驻标题栏', () => {
+  it('标题栏存在：标题（默认 Cuckoo Code）+ 导航/刷新/主页按钮 + token 徽章，均带 SVG', () => {
+    assert.strictEqual(document.getElementById('titlebar') !== null, true);
+    assert.strictEqual(document.getElementById('titlebar-title').textContent, 'Cuckoo Code');
+    for (const id of ['btn-nav-toggle', 'btn-reload', 'btn-home', 'token-badge']) {
+      const el = document.getElementById(id);
+      assert.strictEqual(el !== null, true, id);
+      assert.strictEqual(el.querySelector('svg') !== null, true, id);
+      assert.strictEqual(typeof el.title === 'string' && el.title.length > 0, true, id);
+    }
+  });
+
+  it('旧顶栏与热区已移除', () => {
+    assert.strictEqual(document.getElementById('topbar') === null, true);
+    assert.strictEqual(document.getElementById('topbar-hotzone') === null, true);
+  });
+
+  it('onUrlUpdated 更新标题：provider 名 + hostname', () => {
+    api.handlers.url({ url: 'https://chat.deepseek.com/a/b', canGoBack: false, canGoForward: false, providerName: 'DeepSeek' });
+    assert.strictEqual(document.getElementById('titlebar-title').textContent, 'DeepSeek · chat.deepseek.com');
+  });
+
+  it('provider 名缺失时用 hostname；URL 无 hostname（file://）时只用 provider 名', () => {
+    api.handlers.url({ url: 'https://kimi.com/', canGoBack: false, canGoForward: false });
+    assert.strictEqual(document.getElementById('titlebar-title').textContent, 'kimi.com');
+    api.handlers.url({ url: 'file:///app/ui/platform-select.html', canGoBack: false, canGoForward: false, providerName: '' });
+    assert.strictEqual(document.getElementById('titlebar-title').textContent, 'Cuckoo Code');
+    api.handlers.url({ url: 'file:///app/ui/platform-select.html', canGoBack: false, canGoForward: false, providerName: 'Kimi' });
+    assert.strictEqual(document.getElementById('titlebar-title').textContent, 'Kimi');
+  });
+
+  it('api.platform 写入 body 平台类', () => {
+    ctx.cleanup();
+    document.body.className = '';
+    ctx = setupDom(readShellBody());
+    const macApi = makeApi();
+    macApi.platform = 'darwin';
+    initShell(macApi, document);
+    assert.strictEqual(document.body.classList.contains('platform-darwin'), true);
+  });
+
+  it('win 控制按钮：非 win32（默认/macOS）不渲染', () => {
+    assert.strictEqual(document.getElementById('win-controls').hidden, true);
+  });
+
+  it('win 控制按钮：win32 渲染并接线 min/max/close', () => {
+    ctx.cleanup();
+    document.body.className = '';
+    ctx = setupDom(readShellBody());
+    const winApi = makeApi();
+    winApi.platform = 'win32';
+    initShell(winApi, document);
+
+    assert.strictEqual(document.body.classList.contains('platform-win32'), true);
+    assert.strictEqual(document.getElementById('win-controls').hidden, false);
+    document.getElementById('btn-win-min').click();
+    document.getElementById('btn-win-max').click();
+    document.getElementById('btn-win-close').click();
+    assert.deepStrictEqual(winApi.calls, [['windowMinimize'], ['windowMaximize'], ['windowClose']]);
+  });
+
+  it('标题栏按钮动作：刷新/主页接到 api', () => {
+    document.getElementById('btn-reload').click();
+    document.getElementById('btn-home').click();
+    assert.deepStrictEqual(api.calls, [['home']]);
+  });
 });
 
 describe('图标栏', () => {
@@ -95,7 +169,7 @@ describe('图标栏', () => {
     assert.deepStrictEqual(api.calls, [['home']]);
     assert.strictEqual(document.getElementById('side-panel').hidden, true);
     assert.strictEqual(document.querySelectorAll('.rail-btn.active').length, 0);
-    assert.strictEqual(document.querySelector('.panel-content[data-panel-content="home"]'), null);
+    assert.strictEqual(document.querySelector('.panel-content[data-panel-content="home"]') === null, true);
   });
 });
 
@@ -227,111 +301,112 @@ describe('快捷键（原 overlay Ctrl+Shift+C / Esc 迁入 shell）', () => {
   });
 });
 
-describe('顶栏沉浸式自动隐藏', () => {
-  const topbar = () => document.getElementById('topbar');
-  const hotzone = () => document.getElementById('topbar-hotzone');
+describe('导航条滑出（P2 机制复用，无 hover 热区）', () => {
+  const navbar = () => document.getElementById('navbar');
+  const navToggle = () => document.getElementById('btn-nav-toggle');
   const urlInput = () => document.getElementById('url-input');
 
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
 
-  it('初始隐藏：无 .visible 类，热区与浮层元素存在', () => {
-    assert.strictEqual(topbar().classList.contains('visible'), false);
-    assert.strictEqual(hotzone() !== null, true);
+  it('初始隐藏：无 .visible 类，浮层元素存在，热区已移除', () => {
+    assert.strictEqual(navbar() !== null, true);
+    assert.strictEqual(navbar().classList.contains('visible'), false);
+    assert.strictEqual(document.getElementById('topbar-hotzone') === null, true);
     assert.strictEqual(api.calls.length, 0);
   });
 
-  it('热区 mouseenter：顶栏滑出并通知主进程 setTopbarVisible(true)', () => {
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+  it('导航图标点击：唤出导航条、聚焦 URL 输入框、通知主进程 setTopbarVisible(true)', () => {
+    navToggle().click();
+    assert.strictEqual(navbar().classList.contains('visible'), true);
+    assert.strictEqual(document.activeElement === urlInput(), true);
     assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
   });
 
-  it('顶栏 mouseleave：600ms 内不收起，超时后收起并通知主进程', () => {
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
-    topbar().dispatchEvent(new MouseEvent('mouseenter'));
-    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+  it('导航条可见时再点导航图标：收起并通知主进程', () => {
+    navToggle().click();
+    navToggle().click();
+    assert.strictEqual(navbar().classList.contains('visible'), false);
+    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true], ['setTopbarVisible', false]]);
+  });
+
+  it('导航条 mouseleave：600ms 内不收起，超时后收起并通知主进程', () => {
+    navToggle().click();
+    urlInput().blur();
+    navbar().dispatchEvent(new MouseEvent('mouseenter'));
+    navbar().dispatchEvent(new MouseEvent('mouseleave'));
     vi.advanceTimersByTime(599);
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
     vi.advanceTimersByTime(1);
-    assert.strictEqual(topbar().classList.contains('visible'), false);
+    assert.strictEqual(navbar().classList.contains('visible'), false);
     assert.deepStrictEqual(api.calls, [['setTopbarVisible', true], ['setTopbarVisible', false]]);
   });
 
-  it('顶栏 mouseenter 取消待执行的收起', () => {
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
-    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+  it('导航条 mouseenter 取消待执行的收起', () => {
+    navToggle().click();
+    urlInput().blur();
+    navbar().dispatchEvent(new MouseEvent('mouseleave'));
     vi.advanceTimersByTime(300);
-    topbar().dispatchEvent(new MouseEvent('mouseenter'));
+    navbar().dispatchEvent(new MouseEvent('mouseenter'));
     vi.advanceTimersByTime(1000);
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
   });
 
-  it('热区 mouseleave 且顶栏可见（未进入顶栏）：600ms 后收起', () => {
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
-    hotzone().dispatchEvent(new MouseEvent('mouseleave'));
-    vi.advanceTimersByTime(600);
-    assert.strictEqual(topbar().classList.contains('visible'), false);
-    assert.deepStrictEqual(api.calls, [['setTopbarVisible', true], ['setTopbarVisible', false]]);
-  });
-
-  it('URL 输入框聚焦期间：即使鼠标离开顶栏也不收起', () => {
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
-    urlInput().focus();
-    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+  it('URL 输入框聚焦期间：即使鼠标离开导航条也不收起', () => {
+    navToggle().click();
+    navbar().dispatchEvent(new MouseEvent('mouseleave'));
     vi.advanceTimersByTime(2000);
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
   });
 
   it('URL 输入框 blur 后重新计时，600ms 收起', () => {
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
-    urlInput().focus();
-    topbar().dispatchEvent(new MouseEvent('mouseleave'));
+    navToggle().click();
+    navbar().dispatchEvent(new MouseEvent('mouseleave'));
     vi.advanceTimersByTime(2000);
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
     urlInput().blur();
     vi.advanceTimersByTime(600);
-    assert.strictEqual(topbar().classList.contains('visible'), false);
+    assert.strictEqual(navbar().classList.contains('visible'), false);
   });
 
-  it('Ctrl+L（壳聚焦）：唤出顶栏、聚焦 URL 输入框、preventDefault', () => {
+  it('Ctrl+L（壳聚焦）：唤出导航条、聚焦 URL 输入框、preventDefault', () => {
     const e = new KeyboardEvent('keydown', { key: 'l', ctrlKey: true, bubbles: true, cancelable: true });
     document.dispatchEvent(e);
     assert.strictEqual(e.defaultPrevented, true);
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
     assert.strictEqual(document.activeElement === urlInput(), true);
   });
 
-  it('Cmd+L（壳聚焦，macOS 惯例）：同样唤出顶栏并聚焦 URL 输入框', () => {
+  it('Cmd+L（壳聚焦，macOS 惯例）：同样唤出导航条并聚焦 URL 输入框', () => {
     const e = new KeyboardEvent('keydown', { key: 'l', metaKey: true, bubbles: true, cancelable: true });
     document.dispatchEvent(e);
     assert.strictEqual(e.defaultPrevented, true);
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
     assert.strictEqual(document.activeElement === urlInput(), true);
   });
 
-  it('壳重载回放：panelRestore 带 topbarVisible=true 时恢复顶栏可见', () => {
+  it('壳重载回放：panelRestore 带 topbarVisible=true 时恢复导航条可见', () => {
     api.handlers.panelRestore({ panelId: null, topbarVisible: true });
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
     assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
   });
 
-  it('壳重载回放：topbarVisible=false 时顶栏保持隐藏、不通知主进程', () => {
+  it('壳重载回放：topbarVisible=false 时导航条保持隐藏、不通知主进程', () => {
     api.handlers.panelRestore({ panelId: null, topbarVisible: false });
-    assert.strictEqual(topbar().classList.contains('visible'), false);
+    assert.strictEqual(navbar().classList.contains('visible'), false);
     assert.deepStrictEqual(api.calls, []);
   });
 
-  it('主进程 relay：onFocusUrl 唤出顶栏并聚焦 URL 输入框', () => {
+  it('主进程 relay：onFocusUrl 唤出导航条并聚焦 URL 输入框', () => {
     api.handlers.focusUrl();
-    assert.strictEqual(topbar().classList.contains('visible'), true);
+    assert.strictEqual(navbar().classList.contains('visible'), true);
     assert.strictEqual(document.activeElement === urlInput(), true);
     assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
   });
 
-  it('顶栏已可见时热区重复 mouseenter：不重复通知主进程', () => {
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
-    hotzone().dispatchEvent(new MouseEvent('mouseenter'));
+  it('导航条已可见时重复唤出：不重复通知主进程', () => {
+    api.handlers.focusUrl();
+    api.handlers.focusUrl();
     assert.deepStrictEqual(api.calls, [['setTopbarVisible', true]]);
   });
 });
@@ -347,7 +422,7 @@ describe('formatTokenCount()', () => {
   });
 });
 
-describe('顶栏保留行为', () => {
+describe('导航条保留行为', () => {
   it('URL 输入回车触发 navigate（自动补 https://）', () => {
     const input = document.getElementById('url-input');
     input.value = 'example.com';

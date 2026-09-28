@@ -31,6 +31,32 @@ export function initShell(api, doc, hooks) {
   let currentUrl = '';
   let activePanel = null;
 
+  // ===== 平台分支（无边框窗口） =====
+  // macOS：系统红绿灯内嵌在标题栏左侧（CSS padding 留白）；
+  // win32：标题栏右侧渲染自绘 min/max/close（linux 同样 frame:false，但暂未渲染，可用系统菜单/快捷键）
+  const platform = typeof api.platform === 'string' ? api.platform : '';
+  if (platform && doc.body) doc.body.classList.add('platform-' + platform);
+  if (platform === 'win32') {
+    const winControls = doc.getElementById('win-controls');
+    if (winControls) {
+      winControls.hidden = false;
+      doc.getElementById('btn-win-min').addEventListener('click', function () { if (api.windowMinimize) api.windowMinimize(); });
+      doc.getElementById('btn-win-max').addEventListener('click', function () { if (api.windowMaximize) api.windowMaximize(); });
+      doc.getElementById('btn-win-close').addEventListener('click', function () { if (api.windowClose) api.windowClose(); });
+    }
+  }
+
+  // 标题栏：provider 名 + 当前页面 hostname（pushUrlState 推送）
+  function updateTitle(providerName) {
+    const el = doc.getElementById('titlebar-title');
+    if (!el) return;
+    let hostname = '';
+    try { hostname = new URL(currentUrl).hostname; } catch { /* 空/非法 URL */ }
+    el.textContent = providerName
+      ? (hostname ? providerName + ' · ' + hostname : providerName)
+      : (hostname || 'Cuckoo Code');
+  }
+
   function setBtn(btn, enabled) {
     if (enabled) btn.classList.remove('disabled');
     else btn.classList.add('disabled');
@@ -45,6 +71,7 @@ export function initShell(api, doc, hooks) {
       setBtn(btnForward, data.canGoForward);
       const lock = doc.getElementById('lock');
       if (lock) lock.classList.toggle('insecure', !/^https:/i.test(currentUrl));
+      updateTitle(typeof data.providerName === 'string' ? data.providerName : '');
     });
   }
 
@@ -62,13 +89,12 @@ export function initShell(api, doc, hooks) {
     }
   });
 
-  // ===== 顶栏沉浸式自动隐藏状态机 =====
-  // 默认隐藏；热区 mouseenter / Ctrl+L 唤出；离开顶栏 600ms 后收起，
-  // URL 输入框聚焦期间不收起（blur 后重新计时）。
-  const topbar = doc.getElementById('topbar');
-  const hotzone = doc.getElementById('topbar-hotzone');
-  const TOPBAR_HIDE_DELAY = 600;
-  let topbarVisible = false;
+  // ===== 导航条滑出状态机（P2 机制复用：浮层 + view 临时下移） =====
+  // 默认隐藏；标题栏导航图标 / Ctrl+L 唤出；离开导航条 600ms 后收起，
+  // URL 输入框聚焦期间不收起（blur 后重新计时）。无 hover 热区（常驻标题栏已占顶部）。
+  const navbar = doc.getElementById('navbar');
+  const NAVBAR_HIDE_DELAY = 600;
+  let navbarVisible = false;
   let hideTimer = null;
 
   function clearHideTimer() {
@@ -78,16 +104,16 @@ export function initShell(api, doc, hooks) {
     }
   }
 
-  function setTopbarVisible(visible) {
-    topbarVisible = visible;
-    topbar.classList.toggle('visible', visible);
-    // 同步主进程：滑出时 view 下移 44px 露出浮层，隐藏后回到顶部
+  function setNavbarVisible(visible) {
+    navbarVisible = visible;
+    navbar.classList.toggle('visible', visible);
+    // 同步主进程：滑出时 view 下移 44px 露出浮层，隐藏后回到标题栏下沿
     if (api.setTopbarVisible) api.setTopbarVisible(visible);
   }
 
-  function showTopbar() {
+  function showNavbar() {
     clearHideTimer();
-    if (!topbarVisible) setTopbarVisible(true);
+    if (!navbarVisible) setNavbarVisible(true);
   }
 
   function scheduleHide() {
@@ -95,23 +121,29 @@ export function initShell(api, doc, hooks) {
     hideTimer = setTimeout(function () {
       hideTimer = null;
       if (doc.activeElement === input) return; // URL 输入框聚焦期间不收起
-      if (topbarVisible) setTopbarVisible(false);
-    }, TOPBAR_HIDE_DELAY);
+      if (navbarVisible) setNavbarVisible(false);
+    }, NAVBAR_HIDE_DELAY);
   }
 
   function focusUrlInput() {
-    showTopbar();
+    showNavbar();
     input.focus();
     input.select();
   }
 
-  hotzone.addEventListener('mouseenter', showTopbar);
-  // 鼠标从热区移开且未进入顶栏（如移出窗口/移到图标栏）：延迟收起
-  hotzone.addEventListener('mouseleave', function () { if (topbarVisible) scheduleHide(); });
-  topbar.addEventListener('mouseenter', clearHideTimer);
-  topbar.addEventListener('mouseleave', scheduleHide);
+  navbar.addEventListener('mouseenter', clearHideTimer);
+  navbar.addEventListener('mouseleave', scheduleHide);
   input.addEventListener('focus', clearHideTimer);
   input.addEventListener('blur', scheduleHide);
+
+  // 标题栏导航图标：唤出（并聚焦 URL 输入框）/ 收起导航条
+  const btnNavToggle = doc.getElementById('btn-nav-toggle');
+  if (btnNavToggle) {
+    btnNavToggle.addEventListener('click', function () {
+      if (navbarVisible) setNavbarVisible(false);
+      else focusUrlInput();
+    });
+  }
 
   // AI 页面聚焦时 Ctrl+L 由主进程 before-input-event relay 回来
   if (api.onFocusUrl) api.onFocusUrl(focusUrlInput);
@@ -154,7 +186,7 @@ export function initShell(api, doc, hooks) {
       togglePanel();
       return;
     }
-    // Ctrl+L / Cmd+L：无论顶栏是否可见都唤出并聚焦 URL 输入框（浏览器惯例键，拦截）
+    // Ctrl+L / Cmd+L：无论导航条是否可见都唤出并聚焦 URL 输入框（浏览器惯例键，拦截）
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'L' || e.key === 'l')) {
       e.preventDefault();
       focusUrlInput();
@@ -211,9 +243,9 @@ export function initShell(api, doc, hooks) {
     api.onPanelRestore(function (data) {
       const panelId = data && data.panelId ? data.panelId : null;
       setActivePanel(panelId, { quiet: true });
-      // 顶栏可见性一并回放：壳重载丢失 .visible 类，需与主进程保留的 view 下移状态对齐。
-      // showTopbar 会回传 setTopbarVisible(true)，主进程侧是幂等赋值，无环路风险。
-      if (data && data.topbarVisible) showTopbar();
+      // 导航条可见性一并回放：壳重载丢失 .visible 类，需与主进程保留的 view 下移状态对齐。
+      // showNavbar 会回传 setTopbarVisible(true)，主进程侧是幂等赋值，无环路风险。
+      if (data && data.topbarVisible) showNavbar();
     });
   }
 
@@ -222,7 +254,7 @@ export function initShell(api, doc, hooks) {
   doc.getElementById('btn-reload').addEventListener('click', function () { if (api.reload) api.reload(); });
   doc.getElementById('btn-home').addEventListener('click', function () { if (api.home) api.home(); });
 
-  // rail 首位的 home 图标：与顶栏主页按钮同一动作（导航回平台主页），不展开面板、不高亮
+  // rail 首位的 home 图标：与标题栏主页按钮同一动作（导航回平台主页），不展开面板、不高亮
   const railHome = doc.getElementById('rail-btn-home');
   if (railHome) {
     railHome.addEventListener('click', function () { if (api.home) api.home(); });
@@ -230,7 +262,7 @@ export function initShell(api, doc, hooks) {
 
   return {
     getActivePanel: function () { return activePanel; },
-    isTopbarVisible: function () { return topbarVisible; },
-    showTopbar: showTopbar,
+    isNavbarVisible: function () { return navbarVisible; },
+    showNavbar: showNavbar,
   };
 }

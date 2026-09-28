@@ -7,7 +7,42 @@
 </head>
 <body>
   <div class="shell">
-    <aside class="rail">
+    <!-- 常驻标题栏（42px，全宽）：无边框窗口的拖拽区（-webkit-app-region: drag）。
+         左：macOS 红绿灯内嵌留白 + 平台/页面标题；右：导航/刷新/主页/token 徽章；
+         win32 时最右侧追加自绘 min/max/close（shell.js 按平台渲染）。 -->
+    <header class="titlebar" id="titlebar">
+      <div class="titlebar-title" id="titlebar-title">Cuckoo Code</div>
+      <div class="titlebar-actions">
+        <button class="nav-btn" id="btn-nav-toggle" title="导航条（Ctrl+L）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>
+        </button>
+        <button class="nav-btn" id="btn-reload" title="刷新">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <button class="nav-btn" id="btn-home" title="平台主页">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        </button>
+        <!-- 点击徽章：展开「项目」面板并滚动到用量区（shell.js 接线） -->
+        <button class="token-badge" id="token-badge" title="对话上下文：本会话当前占用的 token 总量（点击查看用量明细）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span class="token-value" id="token-value">0</span>
+        </button>
+        <!-- 自绘窗口控制：仅 win32 显示（shell.js 按 api.platform 决定），macOS 用系统红绿灯 -->
+        <div class="win-controls" id="win-controls" hidden>
+          <button class="win-btn" id="btn-win-min" title="最小化">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+          </button>
+          <button class="win-btn" id="btn-win-max" title="最大化 / 还原">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+          </button>
+          <button class="win-btn win-btn-close" id="btn-win-close" title="关闭">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <div class="shell-row">
+      <aside class="rail">
       <nav class="rail-main">
         <button class="rail-btn" id="rail-btn-home" title="平台主页">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
@@ -243,34 +278,22 @@
         <div class="viewport"></div>
       </div>
     </div>
-    <!-- 顶栏：默认隐藏的浮层（position: fixed，不占布局高度）。
-         滑出时由 shell.js 加 .visible；主进程同步把 view 下移 44px 露出浮层。 -->
-    <header class="topbar" id="topbar">
+    </div>
+    <!-- 导航条：默认隐藏的浮层（position: fixed，不占布局高度），位于常驻标题栏下沿。
+         滑出时由 shell.js 加 .visible；主进程同步把 view 下移 44px 露出浮层。
+         唤出方式：标题栏导航图标 / Ctrl+L（无 hover 热区——常驻标题栏已占顶部）。 -->
+    <header class="navbar" id="navbar">
       <button class="nav-btn disabled" id="btn-back" title="后退">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <button class="nav-btn disabled" id="btn-forward" title="前进">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </button>
-      <button class="nav-btn" id="btn-reload" title="刷新">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-      </button>
       <div class="url-wrap">
         <svg class="lock" id="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
         <input class="url-input" id="url-input" placeholder="输入网址后回车" spellcheck="false" autocomplete="off"/>
       </div>
-      <button class="nav-btn" id="btn-home" title="平台主页">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-      </button>
-      <div class="divider"></div>
-      <!-- 点击徽章：展开「项目」面板并滚动到用量区（shell.js 接线） -->
-      <button class="token-badge" id="token-badge" title="对话上下文：本会话当前占用的 token 总量（点击查看用量明细）">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span class="token-value" id="token-value">0</span>
-      </button>
     </header>
-    <!-- 顶部 12px 热区：顶栏隐藏时鼠标移入唤出顶栏 -->
-    <div class="topbar-hotzone" id="topbar-hotzone"></div>
   </div>
 <script type="module">
   import { initShell } from './shell.js';

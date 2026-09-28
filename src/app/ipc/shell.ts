@@ -16,17 +16,19 @@ function viewOf(event: any): any {
   return windowState.getViewByWebContents(event.sender);
 }
 
-/** 把当前 URL 与前进/后退可用状态推送给壳页面 */
+/** 把当前 URL 与前进/后退可用状态推送给壳页面（附 provider 名供标题栏显示） */
 function pushUrlState(view: any): void {
   if (!view || !view.webContents || view.webContents.isDestroyed()) return;
   const wc = view.webContents;
   const ctx = windowState.getContextByWebContents(wc);
   if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;
   const history = wc.navigationHistory;
+  const provider = ctx.providerId ? getProvider(ctx.providerId) : null;
   ctx.win.webContents.send('shell-url-updated', {
     url: wc.getURL(),
     canGoBack: history ? history.canGoBack() : false,
     canGoForward: history ? history.canGoForward() : false,
+    providerName: provider ? provider.name : '',
   });
 }
 
@@ -175,14 +177,36 @@ function registerShellIpc(): void {
     return { success: true, panelId: ctx.panelId };
   });
 
-  // 顶栏浮层滑出/收起：WebContentsView 原生层级高于壳页面 DOM，浮层会被 view 遮挡，
-  // 故滑出时临时把 view 下移一个顶栏高度（computeViewBounds 第 4 参），收起后回到顶部。
+  // 导航条浮层滑出/收起：WebContentsView 原生层级高于壳页面 DOM，浮层会被 view 遮挡，
+  // 故滑出时临时把 view 下移一个导航条高度（computeViewBounds 第 4 参），收起后回到常驻标题栏下沿。
   ipcMain.handle('shell-topbar-visible', async (event: any, { visible }: any = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     if (!ctx) return { success: false, error: '窗口上下文不存在' };
     ctx.topbarVisible = !!visible;
     try { if (ctx.relayout) ctx.relayout(); } catch (_) {}
     return { success: true, topbarVisible: ctx.topbarVisible };
+  });
+
+  // ===== 无边框窗口自绘窗口控制（win32；macOS 用系统红绿灯） =====
+  ipcMain.handle('shell-window-minimize', async (event: any) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (ctx && ctx.win && !ctx.win.isDestroyed()) ctx.win.minimize();
+    return { success: true };
+  });
+
+  ipcMain.handle('shell-window-maximize', async (event: any) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (ctx && ctx.win && !ctx.win.isDestroyed()) {
+      if (ctx.win.isMaximized()) ctx.win.unmaximize();
+      else ctx.win.maximize();
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('shell-window-close', async (event: any) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (ctx && ctx.win && !ctx.win.isDestroyed()) ctx.win.close();
+    return { success: true };
   });
 }
 

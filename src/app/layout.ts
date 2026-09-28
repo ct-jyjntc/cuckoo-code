@@ -2,19 +2,22 @@
  * 壳窗口布局纯函数（浅色改版骨架）。
  *
  * 布局结构：
- *   左图标栏 52px（全高） + 可展开面板 280px
- *   顶栏为默认隐藏的浮层（shell DOM，不占布局高度）；
+ *   常驻标题栏 42px（全宽，无边框窗口的拖拽区）；
+ *   左图标栏 52px + 可展开面板 280px；
+ *   导航条为默认隐藏的浮层（shell DOM，不占布局高度）；
  *   AI 页面 view 以圆角卡片呈现，四周留 10px 边距。
- * bounds = f(窗口尺寸, panelOpen, topbarVisible)，无 Electron 依赖，便于单测。
+ * bounds = f(窗口尺寸, panelOpen, navOpen)，无 Electron 依赖，便于单测。
  */
 
 export const SHELL_LAYOUT = {
+  /** 常驻标题栏高度（CherryStudio 式细长栏，macOS 红绿灯内嵌其中） */
+  TITLEBAR_HEIGHT: 42,
   /**
-   * 顶栏浮层高度。默认隐藏、不占布局；滑出时因 WebContentsView 原生层级
+   * 导航条浮层高度。默认隐藏、不占布局；滑出时因 WebContentsView 原生层级
    * 高于壳页面 DOM（CSS z-index 无法覆盖），主进程会临时把 view 下移该高度，
-   * 使浮层可见可点；隐藏后 view 回到 y = CARD_MARGIN。
+   * 使浮层可见可点；隐藏后 view 回到 y = TITLEBAR_HEIGHT + CARD_MARGIN。
    */
-  TOPBAR_OVERLAY_HEIGHT: 44,
+  NAVBAR_HEIGHT: 44,
   /** 左侧图标栏宽度 */
   RAIL_WIDTH: 52,
   /** 侧面板宽度（展开时） */
@@ -43,16 +46,16 @@ export interface ViewBounds {
   height: number;
 }
 
-/** 由窗口尺寸与面板/顶栏状态计算 AI 页面 view 的 bounds */
+/** 由窗口尺寸与面板/导航条状态计算 AI 页面 view 的 bounds */
 export function computeViewBounds(
   winWidth: number,
   winHeight: number,
   panelOpen: boolean,
-  topbarVisible: boolean = false
+  navOpen: boolean = false
 ): ViewBounds {
   const m = SHELL_LAYOUT.CARD_MARGIN;
   const x = SHELL_LAYOUT.RAIL_WIDTH + (panelOpen ? SHELL_LAYOUT.PANEL_WIDTH : 0) + m;
-  const y = (topbarVisible ? SHELL_LAYOUT.TOPBAR_OVERLAY_HEIGHT : 0) + m;
+  const y = SHELL_LAYOUT.TITLEBAR_HEIGHT + (navOpen ? SHELL_LAYOUT.NAVBAR_HEIGHT : 0) + m;
   return {
     x,
     y,

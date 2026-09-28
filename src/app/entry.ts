@@ -95,6 +95,12 @@ function createWindow(profile: any) {
     ...(defaultBounds.x !== undefined ? { x: defaultBounds.x + cascadeOffset, y: (defaultBounds.y || 0) + cascadeOffset } : {}),
     icon: resolveAsset('assets/icon.png'),
     title: 'Cuckoo Code Pro - ' + (provider ? provider.name : '未选择平台') + ' - ' + profileData.name,
+    // 无边框窗口（CherryStudio 式）：macOS 隐藏原生标题栏、红绿灯内嵌常驻标题栏；
+    // win/linux 去掉整框，由壳页面标题栏右侧自绘 min/max/close 按钮
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hidden', trafficLightPosition: { x: 13, y: 14 } }
+      : { frame: false }),
+    autoHideMenuBar: true,
     webPreferences: {
       // 壳页面 preload（只负责地址栏导航，与 AI 页面 preload 分离）
       preload: path.join(import.meta.dirname, 'shell-preload.js'),
@@ -127,8 +133,8 @@ function createWindow(profile: any) {
   });
   mainWindow.contentView.addChildView(view);
 
-  // 布局：左图标栏 52 + 面板 280×开关 + 圆角卡片边距 10（见 src/app/layout.ts）；
-  // 顶栏为浮层，默认不占高，滑出时临时下移 view（ctx.topbarVisible）
+  // 布局：常驻标题栏 42 + 左图标栏 52 + 面板 280×开关 + 圆角卡片边距 10（见 src/app/layout.ts）；
+  // 导航条为浮层，默认不占高，滑出时临时下移 view（ctx.topbarVisible）
   view.setBorderRadius(SHELL_LAYOUT.CARD_RADIUS);
   const layoutView = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -150,7 +156,7 @@ function createWindow(profile: any) {
       const ctx = windowState.getWindowContext(mainWindow.id);
       mainWindow.webContents.send('shell-panel-restore', {
         panelId: (ctx && ctx.panelId) || null,
-        // 顶栏滑出期间壳重载会丢 .visible 类但主进程仍留着 view 下移的 44px 死区，一并回放
+        // 导航条滑出期间壳重载会丢 .visible 类但主进程仍留着 view 下移的 44px 死区，一并回放
         topbarVisible: !!(ctx && ctx.topbarVisible),
       });
       const dir = (ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir) || null;
@@ -271,7 +277,7 @@ function createWindow(profile: any) {
     }
     if (input.type !== 'keyDown') return;
     // 原 overlay 快捷键迁入 shell（Task 10）：AI 页面聚焦时按键落在 view，
-    // 判定为壳动作（面板切换/收起、Ctrl+L 唤出顶栏聚焦 URL）则 relay 给壳页面
+    // 判定为壳动作（面板切换/收起、Ctrl+L 唤出导航条聚焦 URL）则 relay 给壳页面
     // 并 preventDefault——否则会与菜单「停止加载」（曾占 Esc 加速器）或页面自身行为叠加触发。
     const ctx = windowState.getContextByWebContents(view.webContents);
     if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;

@@ -18,7 +18,43 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--ck-bg); color: var(--ck-text); overflow: hidden;
 }
-.shell { display: flex; height: 100vh; }
+.shell { display: flex; flex-direction: column; height: 100vh; }
+/* 标题栏（42px，全宽）+ 下方一行（图标栏 + 主区） */
+.shell-row { flex: 1; display: flex; min-height: 0; }
+
+/* ===== 常驻标题栏（无边框窗口拖拽区） ===== */
+.titlebar {
+  height: 42px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 0 10px;
+  border-bottom: 1px solid var(--ck-border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+/* macOS：左侧给内嵌红绿灯留空（trafficLightPosition x=13） */
+body.platform-darwin .titlebar { padding-left: 80px; }
+.titlebar-title {
+  flex: 1; min-width: 0;
+  font-size: 13px; font-weight: 500; color: var(--ck-text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.titlebar-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+/* 拖拽区内可点元素必须显式 no-drag */
+.titlebar-actions, .titlebar-actions * { -webkit-app-region: no-drag; }
+
+/* ===== 自绘窗口控制（仅 win32 渲染） ===== */
+.win-controls { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+.win-controls[hidden] { display: none; }
+.win-btn {
+  width: 40px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--ck-text-dim);
+  transition: background .15s, color .15s;
+}
+.win-btn:hover { background: var(--ck-surface-hover); color: var(--ck-text); }
+.win-btn-close:hover { background: var(--ck-danger); color: #fff; }
+.win-btn svg { width: 14px; height: 14px; }
 
 /* 焦点环（键盘可达性） */
 button:focus-visible,
@@ -52,23 +88,20 @@ textarea:focus-visible {
 /* ===== 右侧主区 ===== */
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
-/* 顶栏：默认隐藏的浮层（44px），不占布局高度。
-   隐藏时 transform 上移出窗口；.visible 时滑下覆盖在卡片上方。 */
-.topbar {
-  position: fixed; top: 0; left: 52px; right: 0; z-index: 100;
+/* 导航条：默认隐藏的浮层（44px），不占布局高度，位于常驻标题栏下沿。
+   隐藏时上移收起并 visibility:hidden（避免遮挡标题栏点击）；.visible 时滑下覆盖在卡片上方。 */
+.navbar {
+  position: fixed; top: 42px; left: 52px; right: 0; z-index: 100;
   display: flex; align-items: center; gap: 6px;
   height: 44px; padding: 0 10px;
   background: var(--ck-surface);
   border-bottom: 1px solid var(--ck-border);
   box-shadow: 0 4px 12px rgba(13, 13, 13, .08);
   transform: translateY(-100%);
-  transition: transform .2s ease;
+  visibility: hidden;
+  transition: transform .2s ease, visibility .2s;
 }
-.topbar.visible { transform: translateY(0); }
-/* 顶部热区（12px）：顶栏隐藏时鼠标移入唤出；z-index 低于顶栏，顶栏滑出后盖住它 */
-.topbar-hotzone {
-  position: fixed; top: 0; left: 52px; right: 0; height: 12px; z-index: 99;
-}
+.navbar.visible { transform: translateY(0); visibility: visible; }
 .nav-btn {
   width: 30px; height: 30px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -98,7 +131,6 @@ textarea:focus-visible {
 }
 .url-input::placeholder { color: var(--ck-text-dim); }
 .url-input::selection { background: var(--ck-primary); color: #fff; }
-.divider { width: 1px; height: 20px; background: var(--ck-border); margin: 0 4px; }
 
 /* token 徽章（单个，替代旧状态条） */
 .token-badge {
