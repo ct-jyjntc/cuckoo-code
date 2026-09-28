@@ -14,6 +14,7 @@ import * as mcpConfig from '../mcp/config.js';
 import * as mcpClient from '../mcp/client.js';
 import { resolveAsset, resolveSrc } from '../infra/paths.js';
 import { computeViewBounds, SHELL_LAYOUT } from './layout.js';
+import { decideViewKeyAction } from './shortcuts.js';
 
 const require = createRequire(import.meta.url);
 const { app, BrowserWindow, WebContentsView, Menu, dialog, ipcMain: ipcMainForProfile } = require('electron');
@@ -257,22 +258,21 @@ function createWindow(profile: any) {
     autoConnectMcp();
   });
 
-  view.webContents.on('before-input-event', (_event: any, input: any) => {
+  view.webContents.on('before-input-event', (event: any, input: any) => {
     if (input.key === 'F12') {
       view.webContents.toggleDevTools();
       return;
     }
     if (input.type !== 'keyDown') return;
     // 原 overlay 快捷键迁入 shell（Task 10）：AI 页面聚焦时按键落在 view，
-    // 这里 relay 给壳页面由其面板状态机处理。不 preventDefault，页面自身行为保留。
+    // 判定为面板动作则 relay 给壳页面并 preventDefault——否则会与菜单
+    // 「停止加载」（曾占 Esc 加速器）或页面自身的 Esc 行为叠加触发。
     const ctx = windowState.getContextByWebContents(view.webContents);
     if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;
-    if (input.control && input.shift && (input.key === 'C' || input.key === 'c')) {
-      ctx.win.webContents.send('shell-toggle-panel');
-    } else if (input.key === 'Escape' && ctx.panelId) {
-      // 仅面板打开时收起；面板关闭时 Esc 属于页面自己
-      ctx.win.webContents.send('shell-close-panel');
-    }
+    const action = decideViewKeyAction(input, ctx.panelId || null);
+    if (!action) return;
+    event.preventDefault();
+    ctx.win.webContents.send(action === 'toggle-panel' ? 'shell-toggle-panel' : 'shell-close-panel');
   });
 
   // 关闭前记录窗口大小/位置（用 getNormalBounds 取"还原后"尺寸；closed 时窗口已销毁取不到）
@@ -391,7 +391,9 @@ function setupAppMenu() {
         },
         {
           label: '停止加载',
-          accelerator: 'Esc',
+          // 不配 Esc 加速器：Esc 已用于收起侧面板（view 侧 before-input-event 拦截，
+          // 壳聚焦时走页面 keydown）。加速器会在面板收起的同时误触发 stop()，
+          // 且壳页面聚焦时先消费 Esc 导致收起失效。停止加载仍可点此菜单项。
           click: (_item: any, focusedWindow: any) => {
             const ctx = focusedWindow ? windowState.getContextByWebContents(focusedWindow.webContents) : null;
             const view = ctx ? ctx.view : null;

@@ -27,6 +27,7 @@
 | `shell-preload.ts` | 壳页面 preload，暴露 `window.shellAPI`（导航 + 面板 + 快捷键 relay） |
 | `window.ts` | 多窗口管理：`WindowContext { win, view, profileId, providerId, sessionStore }`；`getContextByWebContents` 同时匹配 win 与 view |
 | `layout.ts` | 壳布局纯函数：图标栏 52 / 面板 280 / 圆角卡片 bounds；`SHELL_PANEL_IDS` 校验 |
+| `shortcuts.ts` | view 按键 → 壳面板动作的纯判定（Ctrl+Shift+C / Esc，before-input-event 用） |
 | `profile.ts` | 窗口 Profile（名称、providerId、partition）的读写 |
 | `settings-store.ts` | 设置主进程持久化（`userData/settings.json`，全局共享）；旧 localStorage 键首启迁移 |
 | `tool-activity.ts` | 工具活动历史（主进程内存，按窗口隔离，上限 50），供壳任务面板拉取 |
