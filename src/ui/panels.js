@@ -65,7 +65,6 @@ export function initPanels(api, doc) {
         const item = el(doc, 'div', 'panel-item session-item');
         item.dataset.sessionId = String(sessionId);
         item.appendChild(el(doc, 'span', 'session-id', String(sessionId)));
-        item.appendChild(el(doc, 'span', 'session-action', '跳转'));
         sessionList.appendChild(item);
       }
     } catch (err) {
@@ -127,7 +126,6 @@ export function initPanels(api, doc) {
 
     const left = el(doc, 'span', 'window-left');
     left.appendChild(el(doc, 'span', 'window-name', String(p.name)));
-    left.appendChild(el(doc, 'span', 'window-sep', '|'));
     left.appendChild(el(doc, 'span', 'window-status', pname));
 
     const del = el(doc, 'span', 'window-del', '删除');
@@ -928,8 +926,8 @@ export function initPanels(api, doc) {
 
   function taskStatusInfo(entry) {
     if (entry.status === 'running') return { text: '执行中', cls: 'running' };
-    if (entry.canceled) return { text: '⏹ 已忽略', cls: 'canceled' };
-    return entry.success ? { text: '✅ 成功', cls: 'success' } : { text: '❌ 失败', cls: 'error' };
+    if (entry.canceled) return { text: '已忽略', cls: 'canceled' };
+    return entry.success ? { text: '成功', cls: 'success' } : { text: '失败', cls: 'error' };
   }
 
   /** 当前命令区：最新一条（执行中带 spinner，完成后展示输出） */

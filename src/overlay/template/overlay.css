@@ -1,13 +1,14 @@
 :root {
   --ck-border: #e5e5ea;
   --ck-text: #0d0d0d;
-  --ck-text-dim: #6b7280;
+  --ck-text-dim: #6e6e80;
   --ck-accent: #6d76ff;
-  --ck-danger: #e5484d;
+  --ck-danger: #d5463c;
+  --ck-danger-soft: rgba(213, 70, 60, 0.08);
 }
 /* 工具调用执行期间的全局遮罩：阻止用户操作，提示等待 */
 .cuckoo-tool-mask {
-  position: fixed; inset: 0; z-index: 2147483648;
+  position: fixed; inset: 0; z-index: 2147483647;
   background: rgba(255, 255, 255, 0.35);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -22,7 +23,7 @@
   padding: 10px 18px; border-radius: 999px;
   background: #ffffff;
   border: 1px solid var(--ck-border);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 30px rgba(13, 13, 13, 0.08), 0 2px 8px rgba(13, 13, 13, 0.04);
 }
 .cuckoo-tool-mask-spinner {
   width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
@@ -37,41 +38,46 @@
   cursor: pointer; letter-spacing: 0.2px;
   transition: background-color 0.15s ease;
 }
-.cuckoo-tool-mask-cancel:hover { background: rgba(229, 72, 77, 0.08); }
+.cuckoo-tool-mask-cancel:hover { background: var(--ck-danger-soft); }
 .cuckoo-tool-mask-cancel:active { transform: scale(0.97); }
 @keyframes cuckoo-spin { to { transform: rotate(360deg); } }
 .cuckoo-hidden { display: none !important; }
 /* 轻提示（panel.ts showToast 动态创建，挂在 body 上） */
 .cuckoo-toast {
   position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-8px);
-  z-index: 2147483648; min-width: 200px; max-width: 380px; text-align: center;
+  z-index: 2147483647; min-width: 200px; max-width: 380px; text-align: center;
   background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--ck-border); border-radius: 999px;
   padding: 9px 16px; font-size: 13px; color: var(--ck-text);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.05);
-  opacity: 0; pointer-events: none; transition: opacity 0.22s ease, transform 0.22s ease;
+  box-shadow: 0 8px 30px rgba(13, 13, 13, 0.10), 0 2px 8px rgba(13, 13, 13, 0.05);
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .cuckoo-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-/* 重试倒计时浮层（retry-countdown.ts 动态创建，挂在 body 上） */
+/* 重试倒计时浮层（retry-countdown.ts 动态创建，挂在 body 上）；
+   bottom 96px：与工具遮罩 pill（bottom 32px）错位，避免重叠 */
 .cuckoo-retry-countdown {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  z-index: 2147483647; pointer-events: auto;
+  position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+  z-index: 2147483646; pointer-events: auto;
 }
 .cuckoo-retry-countdown.cuckoo-hidden { display: none !important; }
 .cuckoo-retry-countdown-inner {
   display: flex; align-items: center; gap: 14px;
   background: #ffffff; border: 1px solid var(--ck-border);
   border-radius: 999px; padding: 9px 16px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 8px 28px rgba(13, 13, 13, 0.10);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 13px; color: var(--ck-text);
 }
 #cuckoo-retry-countdown-text { white-space: nowrap; }
-#cuckoo-retry-cancel { color: var(--ck-text-dim); cursor: pointer; }
-#cuckoo-retry-cancel:hover { color: var(--ck-danger); }
 .cuckoo-btn-text {
   background: none; border: none; color: var(--ck-text-dim); padding: 4px 0;
-  text-align: left; font-size: 11px; cursor: pointer; transition: color 0.2s;
+  text-align: left; font-size: 13px; cursor: pointer; transition: color 0.2s;
 }
 .cuckoo-btn-text:hover { color: var(--ck-danger); }
+/* 焦点环（键盘可达性，只作用于 cuckoo 自有元素，不污染宿主页面） */
+.cuckoo-tool-mask button:focus-visible,
+#cuckoo-retry-countdown button:focus-visible {
+  outline: 2px solid var(--ck-accent);
+  outline-offset: 1px;
+}

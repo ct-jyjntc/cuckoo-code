@@ -16,9 +16,9 @@ const electronAPI: ElectronAPI = {
   executeCommand: (command: string, id: string) => {
     return ipcRenderer.invoke('execute-command', { command, id });
   },
-  initProject: (projectDir?: string | null, isCompaction?: boolean, extraPrompt?: string, noDialog?: boolean) => {
+  initProject: (projectDir?: string | null, isCompaction?: boolean, extraPrompt?: string, noDialog?: boolean, skipPrompt?: boolean) => {
     return ipcRenderer.invoke('init-project', {
-      skipPrompt: false,
+      skipPrompt: !!skipPrompt,
       projectDir: projectDir || null,
       isCompaction: !!isCompaction,
       extraPrompt: extraPrompt || '',

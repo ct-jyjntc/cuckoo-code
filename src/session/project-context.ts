@@ -72,7 +72,7 @@ async function initProject(skipPrompt: boolean = false, windowContext: any = nul
 
     if (!result || result.length === 0) {
       console.log('[Cuckoo Code] 用户取消了目录选择');
-      return { success: false, message: '用户取消了目录选择' };
+      return { success: false, canceled: true, message: '用户取消了目录选择' };
     }
     selectedDir = result[0];
     console.log('[Cuckoo Code] 用户选择目录:', selectedDir);

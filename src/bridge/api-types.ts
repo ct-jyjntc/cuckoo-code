@@ -14,10 +14,11 @@ export interface ExecuteCommandResult {
   stderr?: string;
 }
 
-/** init-project / updateProjectDir：主进程 initProject 的返回 */
+/** init-project / updateProjectDir：主进程 initProject 的返回（canceled 仅在用户取消目录选择时出现） */
 export interface InitProjectResult {
   success: boolean;
   message: string;
+  canceled?: boolean;
 }
 
 /** get-project-dir：当前窗口的项目目录（未选择时为 null） */
@@ -171,7 +172,8 @@ export interface Settings {
 
 export interface ElectronAPI {
   executeCommand(command: string, id: string): Promise<ExecuteCommandResult>;
-  initProject(projectDir?: string | null, isCompaction?: boolean, extraPrompt?: string, noDialog?: boolean): Promise<InitProjectResult>;
+  /** 平台选择页（无聊天输入框）初始化时传 skipPrompt=true：只选目录存映射，不发初始提示 */
+  initProject(projectDir?: string | null, isCompaction?: boolean, extraPrompt?: string, noDialog?: boolean, skipPrompt?: boolean): Promise<InitProjectResult>;
   updateProjectDir(): Promise<InitProjectResult>;
   getProjectDir(): Promise<GetProjectDirResult>;
   executeTool(toolName: string, params: Record<string, unknown>, callId: string): Promise<ExecuteToolResult>;

@@ -1,12 +1,14 @@
 :root {
   --ck-bg: #f7f7f8;
   --ck-surface: #ffffff;
-  --ck-surface-hover: #f0f0f4;
+  --ck-surface-hover: #ececf1;
   --ck-surface-active: #e8e8f0;
   --ck-border: #e5e5ea;
   --ck-primary: #6d76ff;
   --ck-text: #0d0d0d;
   --ck-text-dim: #6e6e80;
+  --ck-danger: #d5463c;
+  --ck-danger-soft: rgba(213, 70, 60, 0.08);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -19,6 +21,14 @@ body {
   align-items: center;
   justify-content: center;
   user-select: none;
+}
+
+/* 焦点环（键盘可达性） */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ck-primary);
+  outline-offset: 1px;
 }
 
 .container {
@@ -40,8 +50,8 @@ body {
   margin-bottom: 24px;
 }
 
-.cuckoo-empty { color: var(--ck-text-dim); font-size: 14px; }
-.cuckoo-empty.error { color: #d5463c; }
+.cuckoo-empty { color: var(--ck-text-dim); font-size: 13px; }
+.cuckoo-empty.error { color: var(--ck-danger); }
 
 .platform-list {
   display: flex;
@@ -58,7 +68,7 @@ body {
   border: 1px solid var(--ck-border);
   border-radius: 16px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
   text-align: center;
 }
 
@@ -66,21 +76,35 @@ body {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 20px;
+  min-width: 20px;
   height: 20px;
-  line-height: 18px;
-  text-align: center;
-  background: rgba(213, 70, 60, 0.08);
-  color: #d5463c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ck-danger-soft);
+  color: var(--ck-danger);
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 12px;
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, background 0.15s;
 }
 
-.platform-card:hover .platform-delete {
-  display: block;
+/* 二次确认态：展开宽度放「确认删除？」文案 */
+.platform-delete.confirming {
+  padding: 0 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.platform-card:hover .platform-delete,
+.platform-delete:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .platform-delete:hover {
@@ -93,19 +117,24 @@ body {
   right: 32px;
   width: 20px;
   height: 20px;
-  line-height: 18px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(109, 118, 255, 0.1);
   color: var(--ck-primary);
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 12px;
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, background 0.15s;
 }
 
-.platform-card:hover .platform-replace {
-  display: block;
+.platform-card:hover .platform-replace,
+.platform-replace:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .platform-replace:hover {
@@ -115,8 +144,8 @@ body {
 .platform-card:hover {
   background: var(--ck-surface-hover);
   border-color: rgba(109, 118, 255, 0.5);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 30px rgba(109, 118, 255, 0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(13, 13, 13, 0.08);
 }
 
 .platform-logo {
@@ -125,7 +154,7 @@ body {
   margin: 0 auto 16px;
   background: var(--ck-surface);
   border: 1px solid var(--ck-border);
-  border-radius: 14px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,6 +269,7 @@ body {
   color: var(--ck-text);
   word-break: break-all;
   line-height: 1.5;
+  user-select: text;
 }
 
 .quick-dir-hint {
@@ -252,7 +282,7 @@ body {
   display: none;
 }
 
-/* 页内轻提示（浅色 toast） */
+/* 页内轻提示（浅色 toast，允许换行） */
 .ps-toast {
   position: fixed;
   left: 50%;
@@ -263,17 +293,16 @@ body {
   background: var(--ck-surface);
   color: var(--ck-text);
   border: 1px solid var(--ck-border);
-  border-radius: 10px;
+  border-radius: 999px;
   box-shadow: 0 8px 24px rgba(13, 13, 13, 0.12);
   font-size: 13px;
+  line-height: 1.5;
   pointer-events: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
 }
 
 .ps-toast.error {
-  color: #d5463c;
+  color: var(--ck-danger);
   border-color: rgba(213, 70, 60, 0.35);
 }
 

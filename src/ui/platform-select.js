@@ -56,7 +56,7 @@ export function initPlatformSelect(api, doc) {
     }
   }
 
-  /** 初始化项目（busy 态对照壳项目面板） */
+  /** 初始化项目（busy 态对照壳项目面板）；首页无聊天输入框，传 skipPrompt 不发初始提示 */
   const btnInitProject = doc.getElementById('ps-btn-init-project');
   if (btnInitProject) {
     btnInitProject.addEventListener('click', async function () {
@@ -68,11 +68,14 @@ export function initPlatformSelect(api, doc) {
       const prevText = btnInitProject.textContent;
       btnInitProject.textContent = '初始化中...';
       try {
-        const result = await api.initProject();
+        const result = await api.initProject(null, false, '', false, true);
         if (result && result.success) {
           showToast(result.message || '初始化完成');
           // 初始化可能改选了目录，重新拉取展示
           await loadProjectDir();
+        } else if (result && result.canceled) {
+          // 用户取消目录选择：中性提示，不算错误
+          showToast(result.message || '已取消');
         } else {
           showToast((result && result.message) || '初始化失败', true, 3000);
         }
@@ -93,16 +96,25 @@ export function initPlatformSelect(api, doc) {
         showToast('API 不可用', true, 3000);
         return;
       }
+      btnChangeDir.disabled = true;
+      const prevText = btnChangeDir.textContent;
+      btnChangeDir.textContent = '修改中...';
       try {
         const result = await api.updateProjectDir();
         if (result && result.success) {
           showToast(result.message || '项目目录已更新');
           await loadProjectDir();
+        } else if (result && result.canceled) {
+          // 用户取消目录选择：中性提示，不算错误
+          showToast(result.message || '已取消');
         } else {
           showToast((result && result.message) || '修改目录失败', true, 3000);
         }
       } catch (err) {
         showToast('修改目录失败: ' + (err && err.message ? err.message : err), true, 3000);
+      } finally {
+        btnChangeDir.disabled = false;
+        btnChangeDir.textContent = prevText;
       }
     });
   }
@@ -183,7 +195,7 @@ export function initPlatformSelect(api, doc) {
             await api.selectPlatform(providerId);
           } catch (err) {
             // 失败提示
-            alert('进入平台失败: ' + (err && err.message ? err.message : err));
+            showToast('进入平台失败: ' + (err && err.message ? err.message : err), true, 3000);
           }
         });
       });
@@ -194,16 +206,30 @@ export function initPlatformSelect(api, doc) {
           const filePath = btn.dataset.path;
           const providerId = btn.dataset.id;
           if (!filePath) return;
-          if (!confirm('确定删除这个自定义 Provider 吗？')) return;
+          // 卡片内联二次确认：第一次点击变「确认删除？」，3 秒未确认自动还原
+          if (!btn.classList.contains('confirming')) {
+            btn.classList.add('confirming');
+            btn.textContent = '确认删除？';
+            clearTimeout(btn._confirmTimer);
+            btn._confirmTimer = setTimeout(function () {
+              btn.classList.remove('confirming');
+              btn.textContent = '×';
+            }, 3000);
+            return;
+          }
+          clearTimeout(btn._confirmTimer);
+          btn.classList.remove('confirming');
+          btn.textContent = '×';
           try {
             const res = await api.removeProvider(filePath, providerId);
             if (res && res.success) {
+              showToast('已删除 Provider');
               await loadPlatforms();
             } else {
-              alert('删除失败: ' + ((res && res.error) || '未知错误'));
+              showToast('删除失败: ' + ((res && res.error) || '未知错误'), true, 3000);
             }
           } catch (err) {
-            alert('删除失败: ' + (err.message || err));
+            showToast('删除失败: ' + (err.message || err), true, 3000);
           }
         });
       });
@@ -215,15 +241,15 @@ export function initPlatformSelect(api, doc) {
           try {
             const res = await api.replaceProvider(providerId);
             if (res && res.success) {
-              alert('替换成功');
+              showToast('替换成功');
               await loadPlatforms();
             } else if (res && res.canceled) {
               // 用户取消，不处理
             } else {
-              alert('替换失败: ' + ((res && res.error) || '未知错误'));
+              showToast('替换失败: ' + ((res && res.error) || '未知错误'), true, 3000);
             }
           } catch (err) {
-            alert('替换失败: ' + (err.message || err));
+            showToast('替换失败: ' + (err.message || err), true, 3000);
           }
         });
       });
@@ -239,10 +265,10 @@ export function initPlatformSelect(api, doc) {
             } else if (res && res.canceled) {
               // 用户取消，不处理
             } else {
-              alert('导入失败: ' + ((res && res.error) || '未知错误'));
+              showToast('导入失败: ' + ((res && res.error) || '未知错误'), true, 3000);
             }
           } catch (err) {
-            alert('导入失败: ' + (err.message || err));
+            showToast('导入失败: ' + (err.message || err), true, 3000);
           }
         });
       }

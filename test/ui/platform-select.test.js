@@ -7,7 +7,7 @@
  * 标记 HTML 直接读自 src/ui/platform-select.html，与其他 ui 测试同一来源。
  * 断言只取原始值，不把已挂载 DOM 节点放进 actual/expected。
  */
-import { describe, it, beforeEach, afterEach } from 'vitest';
+import { describe, it, beforeEach, afterEach, vi } from 'vitest';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -51,8 +51,8 @@ function makeApi(overrides) {
       calls.push(['getProjectDir']);
       return { success: true, projectDir: '/tmp/proj' };
     },
-    initProject: async () => {
-      calls.push(['initProject']);
+    initProject: async (...args) => {
+      calls.push(['initProject', ...args]);
       return { success: true, message: '初始化完成' };
     },
     updateProjectDir: async () => {
@@ -164,13 +164,31 @@ describe('快速操作区：初始化项目', () => {
     assert.strictEqual(dirCalls >= 2, true);
   });
 
+  it('初始化项目传 skipPrompt=true（首页无聊天输入框，不发初始提示）', async () => {
+    document.getElementById('ps-btn-init-project').click();
+    await flush();
+    await flush();
+    const call = api.calls.find((c) => c[0] === 'initProject');
+    assert.strictEqual(call !== undefined, true);
+    assert.strictEqual(call[call.length - 1], true);
+  });
+
   it('初始化失败时 toast 显示 message（error 样式）', async () => {
-    api.initProject = async () => ({ success: false, message: '用户取消了目录选择' });
+    api.initProject = async () => ({ success: false, message: '目录不可写' });
+    document.getElementById('ps-btn-init-project').click();
+    await flush();
+    await flush();
+    assert.strictEqual(toast().textContent, '目录不可写');
+    assert.strictEqual(toast().classList.contains('error'), true);
+  });
+
+  it('用户取消目录选择：toast 中性样式（非 error）', async () => {
+    api.initProject = async () => ({ success: false, canceled: true, message: '用户取消了目录选择' });
     document.getElementById('ps-btn-init-project').click();
     await flush();
     await flush();
     assert.strictEqual(toast().textContent, '用户取消了目录选择');
-    assert.strictEqual(toast().classList.contains('error'), true);
+    assert.strictEqual(toast().classList.contains('error'), false);
   });
 
   it('initProject 缺失时提示 API 不可用', async () => {
@@ -192,13 +210,117 @@ describe('快速操作区：修改项目目录', () => {
     assert.strictEqual(toast().classList.contains('error'), false);
   });
 
+  it('修改目录期间按钮 busy，结束后恢复', async () => {
+    let resolveUpdate;
+    api.updateProjectDir = () => new Promise((r) => { resolveUpdate = r; });
+    const btn = document.getElementById('ps-btn-change-dir');
+    btn.click();
+    await flush();
+    assert.strictEqual(btn.disabled, true);
+    assert.strictEqual(btn.textContent, '修改中...');
+    resolveUpdate({ success: true, message: '项目目录已更新' });
+    await flush();
+    await flush();
+    assert.strictEqual(btn.disabled, false);
+    assert.strictEqual(btn.textContent, '修改项目目录');
+  });
+
   it('修改目录失败时 toast 显示 message（error 样式）', async () => {
-    api.updateProjectDir = async () => ({ success: false, message: '用户取消了目录选择' });
+    api.updateProjectDir = async () => ({ success: false, message: '目录不可写' });
+    document.getElementById('ps-btn-change-dir').click();
+    await flush();
+    await flush();
+    assert.strictEqual(toast().textContent, '目录不可写');
+    assert.strictEqual(toast().classList.contains('error'), true);
+  });
+
+  it('用户取消目录选择：toast 中性样式（非 error）', async () => {
+    api.updateProjectDir = async () => ({ success: false, canceled: true, message: '用户取消了目录选择' });
     document.getElementById('ps-btn-change-dir').click();
     await flush();
     await flush();
     assert.strictEqual(toast().textContent, '用户取消了目录选择');
+    assert.strictEqual(toast().classList.contains('error'), false);
+  });
+});
+
+describe('平台卡片：删除二次确认', () => {
+  async function setupCustomProvider(removeImpl) {
+    ctx.cleanup();
+    ctx = setupDom(readPageBody());
+    api = makeApi({
+      listProviders: async () => {
+        api.calls.push(['listProviders']);
+        return {
+          success: true,
+          providers: [{ id: 'mine', name: 'Mine', custom: true, path: '/tmp/mine.js' }],
+        };
+      },
+      removeProvider: removeImpl || (async (filePath, providerId) => {
+        api.calls.push(['removeProvider', filePath, providerId]);
+        return { success: true };
+      }),
+    });
+    initPlatformSelect(api, document);
+    await flush();
+    await flush();
+    await flush();
+  }
+
+  it('第一次点击 ×：变「确认删除？」，不调用 removeProvider', async () => {
+    await setupCustomProvider();
+    const btn = document.querySelector('.platform-delete');
+    btn.click();
+    await flush();
+    assert.strictEqual(btn.textContent, '确认删除？');
+    assert.strictEqual(btn.classList.contains('confirming'), true);
+    assert.strictEqual(api.calls.some((c) => c[0] === 'removeProvider'), false);
+  });
+
+  it('3 秒未确认自动还原为 ×', async () => {
+    await setupCustomProvider();
+    vi.useFakeTimers();
+    try {
+      const btn = document.querySelector('.platform-delete');
+      btn.click();
+      assert.strictEqual(btn.classList.contains('confirming'), true);
+      vi.advanceTimersByTime(3000);
+      assert.strictEqual(btn.classList.contains('confirming'), false);
+      assert.strictEqual(btn.textContent, '×');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('确认期内第二次点击：调用 removeProvider，成功 toast 并刷新列表', async () => {
+    await setupCustomProvider();
+    const listCallsBefore = api.calls.filter((c) => c[0] === 'listProviders').length;
+    const btn = document.querySelector('.platform-delete');
+    btn.click();
+    await flush();
+    btn.click();
+    await flush();
+    await flush();
+    assert.deepStrictEqual(
+      api.calls.find((c) => c[0] === 'removeProvider'),
+      ['removeProvider', '/tmp/mine.js', 'mine']
+    );
+    assert.strictEqual(api.calls.filter((c) => c[0] === 'listProviders').length > listCallsBefore, true);
+    assert.strictEqual(toast().textContent, '已删除 Provider');
+    assert.strictEqual(toast().classList.contains('error'), false);
+  });
+
+  it('删除失败：toast error 提示，按钮已还原', async () => {
+    await setupCustomProvider(async () => ({ success: false, error: '窗口使用中' }));
+    const btn = document.querySelector('.platform-delete');
+    btn.click();
+    await flush();
+    btn.click();
+    await flush();
+    await flush();
+    assert.strictEqual(toast().textContent, '删除失败: 窗口使用中');
     assert.strictEqual(toast().classList.contains('error'), true);
+    assert.strictEqual(btn.classList.contains('confirming'), false);
   });
 });
 

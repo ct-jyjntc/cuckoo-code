@@ -78,7 +78,8 @@ describe('会话面板', () => {
     const ids = Array.from(items).map((el) => el.dataset.sessionId);
     assert.deepStrictEqual(ids, ['abc123', 'def456']);
     assert.strictEqual(items[0].querySelector('.session-id').textContent, 'abc123');
-    assert.strictEqual(items[0].querySelector('.session-action') !== null, true);
+    // 「跳转」尾巴已删除（#17）：hover 样式由 CSS 承担，不再渲染动作文字
+    assert.strictEqual(items[0].querySelector('.session-action'), null);
   });
 
   it('空会话列表显示「暂无会话」', async () => {
