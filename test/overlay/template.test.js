@@ -8,7 +8,7 @@ import { OVERLAY_HTML, OVERLAY_CSS } from '../../src/overlay/template.generated.
 test('OVERLAY_HTML 包含工具调用遮罩及提示文案', () => {
   assert.ok(OVERLAY_HTML.includes('id="cuckoo-tool-mask"'));
   assert.ok(OVERLAY_HTML.includes('id="cuckoo-tool-mask-cancel"'));
-  assert.ok(OVERLAY_HTML.includes('工具调用执行中，请不要有额外操作'));
+  assert.ok(OVERLAY_HTML.includes('正在执行工具调用…'));
 });
 
 test('OVERLAY_HTML 不再包含已迁往 shell 的面板/弹窗/悬浮球元素', () => {
