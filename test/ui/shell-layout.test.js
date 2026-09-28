@@ -45,6 +45,7 @@ function makeApi() {
     windowClose: () => { calls.push(['windowClose']); },
     zoom: (action) => { calls.push(['zoom', action]); },
     getZoom: () => Promise.resolve({ success: true, zoomFactor: 1 }),
+    openZoomMenu: (rect) => { calls.push(['openZoomMenu', rect]); },
     onUrlUpdated: (cb) => { handlers.url = cb; },
     onTokenUpdated: (cb) => { handlers.token = cb; },
     onZoomUpdated: (cb) => { handlers.zoom = cb; },
@@ -305,34 +306,24 @@ describe('快捷键（原 overlay Ctrl+Shift+C / Esc 迁入 shell）', () => {
 });
 
 describe('视图缩放', () => {
-  it('缩放按钮存在：放大镜 SVG + 初始 100% 倍率，菜单默认收起', () => {
+  it('缩放按钮存在：放大镜 SVG + 初始 100% 倍率；内嵌菜单已移除（改原生子窗口）', () => {
     const btn = document.getElementById('btn-zoom');
     assert.strictEqual(btn !== null, true);
     assert.strictEqual(btn.querySelector('svg') !== null, true);
     assert.strictEqual(typeof btn.title === 'string' && btn.title.length > 0, true);
     assert.strictEqual(document.getElementById('zoom-value').textContent, '100%');
-    assert.strictEqual(document.getElementById('zoom-menu').hidden, true);
+    assert.strictEqual(document.getElementById('zoom-menu') === null, true);
   });
 
-  it('点击缩放按钮：弹出 mini 菜单（放大/缩小/重置三项）', () => {
+  it('点击缩放按钮：把按钮位置交给主进程弹出 mini 菜单（openZoomMenu）', () => {
     document.getElementById('btn-zoom').click();
-    const menu = document.getElementById('zoom-menu');
-    assert.strictEqual(menu.hidden, false);
-    const actions = Array.from(menu.querySelectorAll('[data-zoom]')).map((b) => b.dataset.zoom);
-    assert.deepStrictEqual(actions, ['in', 'out', 'reset']);
-  });
-
-  it('点击菜单项：调用 api.zoom(action) 并收起菜单', () => {
-    document.getElementById('btn-zoom').click();
-    document.querySelector('[data-zoom="in"]').click();
-    assert.deepStrictEqual(api.calls, [['zoom', 'in']]);
-    assert.strictEqual(document.getElementById('zoom-menu').hidden, true);
-  });
-
-  it('点击菜单外任意处：收起菜单', () => {
-    document.getElementById('btn-zoom').click();
-    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    assert.strictEqual(document.getElementById('zoom-menu').hidden, true);
+    assert.strictEqual(api.calls.length, 1);
+    assert.strictEqual(api.calls[0][0], 'openZoomMenu');
+    const rect = api.calls[0][1];
+    assert.strictEqual(rect !== null && typeof rect === 'object', true);
+    for (const k of ['left', 'top', 'right', 'bottom']) {
+      assert.strictEqual(typeof rect[k] === 'number', true, k);
+    }
   });
 
   it('onZoomUpdated：同步更新倍率显示（1.3 → 130%，回到 1 → 100%）', () => {

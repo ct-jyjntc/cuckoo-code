@@ -149,37 +149,25 @@ export function initShell(api, doc, hooks) {
   if (api.onFocusUrl) api.onFocusUrl(focusUrlInput);
 
   // ===== 视图缩放（标题栏按钮 + 壳页面 Ctrl/Cmd +/-/0；AI 页面聚焦时由主进程直接应用） =====
-  const zoomWrap = doc.querySelector('.zoom-wrap');
+  // mini 菜单是原生子窗口（层级高于 AI 页面 view），点击按钮时把按钮位置交给主进程弹出。
   const btnZoom = doc.getElementById('btn-zoom');
-  const zoomMenu = doc.getElementById('zoom-menu');
   const zoomValue = doc.getElementById('zoom-value');
 
   function setZoomLabel(factor) {
     if (zoomValue) zoomValue.textContent = Math.round((factor || 1) * 100) + '%';
   }
 
-  function setZoomMenuOpen(open) {
-    if (zoomMenu) zoomMenu.hidden = !open;
-  }
-
   if (btnZoom) {
-    btnZoom.addEventListener('click', function (e) {
-      e.stopPropagation();
-      setZoomMenuOpen(!!zoomMenu && zoomMenu.hidden);
+    btnZoom.addEventListener('click', function () {
+      const rect = btnZoom.getBoundingClientRect();
+      if (api.openZoomMenu) {
+        api.openZoomMenu({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
+      } else if (api.zoom) {
+        // 无主进程支持时退化为直接放大（测试环境/异常环境）
+        api.zoom('in');
+      }
     });
   }
-  if (zoomMenu) {
-    zoomMenu.addEventListener('click', function (e) {
-      const item = e.target && e.target.closest ? e.target.closest('[data-zoom]') : null;
-      if (!item) return;
-      if (api.zoom) api.zoom(item.dataset.zoom);
-      setZoomMenuOpen(false);
-    });
-  }
-  // 点击按钮/菜单外任意处收起缩放菜单
-  doc.addEventListener('click', function (e) {
-    if (zoomWrap && !zoomWrap.contains(e.target)) setZoomMenuOpen(false);
-  });
   // 壳重载后回读主进程保留的倍率；运行中由 shell-zoom-updated 增量刷新
   if (api.getZoom) {
     api.getZoom().then(function (res) {

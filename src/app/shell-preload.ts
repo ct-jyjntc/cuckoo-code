@@ -28,6 +28,8 @@ const shellAPI = {
   onZoomUpdated: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-zoom-updated', (_e: any, data: any) => cb(data));
   },
+  // 弹出缩放 mini 菜单（原生子窗口，层级高于 AI 页面 view）；rect = 按钮相对视口位置
+  openZoomMenu: (rect: any) => ipcRenderer.invoke('shell-zoom-menu-open', { rect }),
   onUrlUpdated: (cb: (data: any) => void) => {
     ipcRenderer.on('shell-url-updated', (_e: any, data: any) => cb(data));
   },

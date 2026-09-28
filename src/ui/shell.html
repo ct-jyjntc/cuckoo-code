@@ -27,29 +27,12 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span class="token-value" id="token-value">0</span>
         </button>
-        <!-- 缩放：点击弹出 mini 菜单（放大/缩小/重置），显示当前倍率（shell.js 接线） -->
+        <!-- 缩放：点击弹出原生子窗口 mini 菜单（放大/缩小/重置），按钮显示当前倍率（shell.js 接线） -->
         <div class="zoom-wrap">
           <button class="zoom-btn" id="btn-zoom" title="缩放（Ctrl/Cmd +/-）">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
             <span class="zoom-value" id="zoom-value">100%</span>
           </button>
-          <div class="zoom-menu" id="zoom-menu" hidden>
-            <button class="zoom-menu-item" data-zoom="in">
-              <span class="zoom-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg></span>
-              <span class="zoom-menu-label">放大</span>
-              <span class="zoom-menu-key">Ctrl +</span>
-            </button>
-            <button class="zoom-menu-item" data-zoom="out">
-              <span class="zoom-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6"/></svg></span>
-              <span class="zoom-menu-label">缩小</span>
-              <span class="zoom-menu-key">Ctrl -</span>
-            </button>
-            <button class="zoom-menu-item" data-zoom="reset">
-              <span class="zoom-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span>
-              <span class="zoom-menu-label">重置</span>
-              <span class="zoom-menu-key">Ctrl 0</span>
-            </button>
-          </div>
         </div>
         <!-- 自绘窗口控制：仅 win32 显示（shell.js 按 api.platform 决定），macOS 用系统红绿灯 -->
         <div class="win-controls" id="win-controls" hidden>
